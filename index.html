@@ -1,65 +1,92 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Điều khiển Relay từ xa</title>
-    <link rel="stylesheet" href="style.css">
+    <title>MQTT Relay Control</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        button {
+            padding: 20px 40px;
+            font-size: 24px;
+            margin: 10px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+        }
+        .on { background: #4CAF50; color: white; }
+        .off { background: #f44336; color: white; }
+        .status {
+            font-size: 20px;
+            margin: 20px;
+            padding: 20px;
+            border-radius: 10px;
+            background: #f0f0f0;
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🎛️ HỆ THỐNG ĐIỀU KHIỂN RELAY</h1>
-            <div class="status-bar">
-                <span id="connection-status" class="status offline">🔴 Mất kết nối</span>
-                <span id="wifi-info"></span>
-                <button onclick="logout()" class="logout-btn">Đăng xuất</button>
-            </div>
-        </header>
-        
-        <div class="ip-config">
-            <h3>⚙️ CẤU HÌNH ESP32</h3>
-            <div class="ip-input-group">
-                <input type="text" id="esp-ip" placeholder="Địa chỉ IP của ESP32" value="192.168.1.100">
-                <button onclick="saveIP()" class="save-btn">Lưu IP</button>
-            </div>
-        </div>
-        
-        <div class="control-panel">
-            <div class="relay-card">
-                <h2>RELAY 1</h2>
-                <div class="relay-status" id="relay1-status">⚫ TẮT</div>
-                <div class="button-group">
-                    <button onclick="controlRelay(1, 1)" class="btn-on">BẬT</button>
-                    <button onclick="controlRelay(1, 0)" class="btn-off">TẮT</button>
-                </div>
-                <div class="feedback">
-                    <span>Feedback 1:</span>
-                    <span id="feedback1">0</span>
-                </div>
-            </div>
-            
-            <div class="relay-card">
-                <h2>RELAY 2</h2>
-                <div class="relay-status" id="relay2-status">⚫ TẮT</div>
-                <div class="button-group">
-                    <button onclick="controlRelay(2, 1)" class="btn-on">BẬT</button>
-                    <button onclick="controlRelay(2, 0)" class="btn-off">TẮT</button>
-                </div>
-                <div class="feedback">
-                    <span>Feedback 2:</span>
-                    <span id="feedback2">0</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="log-panel">
-            <h3>📋 LỊCH SỬ THAO TÁC</h3>
-            <div id="log-messages"></div>
-        </div>
+    <h1>🚀 ĐIỀU KHIỂN RELAY QUA 4G</h1>
+    
+    <div class="status">
+        <p>📶 Kết nối: <span id="mqtt-status">Đang kết nối...</span></p>
     </div>
     
-    <script src="config.js"></script>
-    <script src="script.js"></script>
+    <h2>🔌 RELAY 1</h2>
+    <button class="on" onclick="controlRelay1('ON')">BẬT</button>
+    <button class="off" onclick="controlRelay1('OFF')">TẮT</button>
+    <p>Feedback 1: <span id="fb1">0</span></p>
+    
+    <h2>🔌 RELAY 2</h2>
+    <button class="on" onclick="controlRelay2('ON')">BẬT</button>
+    <button class="off" onclick="controlRelay2('OFF')">TẮT</button>
+    <p>Feedback 2: <span id="fb2">0</span></p>
+
+    <script>
+        // Cấu hình MQTT - GIỐNG CODE ESP32
+        const mqttConfig = {
+            host: 'your-cluster.hivemq.cloud',
+            port: 8884,  // WebSocket port
+            username: 'your-username',
+            password: 'your-password'
+        };
+        
+        const TOPIC_RELAY1 = 'home/relay1';
+        const TOPIC_RELAY2 = 'home/relay2';
+        const TOPIC_FB1 = 'home/feedback1';
+        const TOPIC_FB2 = 'home/feedback2';
+        
+        // Kết nối MQTT
+        const client = mqtt.connect(`wss://${mqttConfig.host}:${mqttConfig.port}`, {
+            username: mqttConfig.username,
+            password: mqttConfig.password
+        });
+        
+        client.on('connect', () => {
+            document.getElementById('mqtt-status').innerHTML = '✅ Đã kết nối';
+            
+            // Subscribe feedback topics
+            client.subscribe(TOPIC_FB1);
+            client.subscribe(TOPIC_FB2);
+        });
+        
+        // Nhận feedback
+        client.on('message', (topic, message) => {
+            if (topic === TOPIC_FB1) {
+                document.getElementById('fb1').innerHTML = message.toString();
+            }
+            if (topic === TOPIC_FB2) {
+                document.getElementById('fb2').innerHTML = message.toString();
+            }
+        });
+        
+        // Điều khiển relay
+        function controlRelay1(state) {
+            client.publish(TOPIC_RELAY1, state);
+        }
+        
+        function controlRelay2(state) {
+            client.publish(TOPIC_RELAY2, state);
+        }
+    </script>
 </body>
 </html>
