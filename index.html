@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Điều khiển Relay từ xa</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎛️ HỆ THỐNG ĐIỀU KHIỂN RELAY</h1>
+            <div class="status-bar">
+                <span id="connection-status" class="status offline">🔴 Mất kết nối</span>
+                <span id="wifi-info"></span>
+                <button onclick="logout()" class="logout-btn">Đăng xuất</button>
+            </div>
+        </header>
+        
+        <div class="ip-config">
+            <h3>⚙️ CẤU HÌNH ESP32</h3>
+            <div class="ip-input-group">
+                <input type="text" id="esp-ip" placeholder="Địa chỉ IP của ESP32" value="192.168.1.100">
+                <button onclick="saveIP()" class="save-btn">Lưu IP</button>
+            </div>
+        </div>
+        
+        <div class="control-panel">
+            <div class="relay-card">
+                <h2>RELAY 1</h2>
+                <div class="relay-status" id="relay1-status">⚫ TẮT</div>
+                <div class="button-group">
+                    <button onclick="controlRelay(1, 1)" class="btn-on">BẬT</button>
+                    <button onclick="controlRelay(1, 0)" class="btn-off">TẮT</button>
+                </div>
+                <div class="feedback">
+                    <span>Feedback 1:</span>
+                    <span id="feedback1">0</span>
+                </div>
+            </div>
+            
+            <div class="relay-card">
+                <h2>RELAY 2</h2>
+                <div class="relay-status" id="relay2-status">⚫ TẮT</div>
+                <div class="button-group">
+                    <button onclick="controlRelay(2, 1)" class="btn-on">BẬT</button>
+                    <button onclick="controlRelay(2, 0)" class="btn-off">TẮT</button>
+                </div>
+                <div class="feedback">
+                    <span>Feedback 2:</span>
+                    <span id="feedback2">0</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="log-panel">
+            <h3>📋 LỊCH SỬ THAO TÁC</h3>
+            <div id="log-messages"></div>
+        </div>
+    </div>
+    
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
