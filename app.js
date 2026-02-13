@@ -1,479 +1,260 @@
-// ==================== KHỞI TẠO ỨNG DỤNG ====================
-
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('ESP32-S3 Relay Controller initialized');
+// ==================== MAIN APPLICATION ====================
+class App {
+    constructor() {
+        this.initialized = false;
+        this.updateInterval = null;
+        window.app = this; // Global access
+    }
     
-    // Initialize MQTT
-    mqttClient.init();
+    // Initialize app
+    async init() {
+        if (this.initialized) return;
+        
+        console.log('🚀 ESP32-S3 Relay Controller v2.0');
+        
+        // Load saved IP
+        const savedIP = localStorage.getItem(CONFIG.STORAGE.ESP_IP);
+        if (savedIP) {
+            API.setIP(savedIP);
+            this.connectToDevice();
+        } else {
+            // Auto scan
+            setTimeout(() => this.scanNetwork(), 1000);
+        }
+        
+        // Start periodic updates
+        this.startUpdates();
+        
+        this.initialized = true;
+    }
     
-    // Try to discover ESP32
-    discoverESP32();
+    // Connect to device
+    async connectToDevice() {
+        try {
+            await API.getStatus();
+            this.updateUI();
+            Utils.showToast('✅ Kết nối thành công', 'success');
+        } catch (error) {
+            console.log('Connection failed:', error);
+            AppState.connected = false;
+            this.updateConnectionUI();
+        }
+    }
+    
+    // Scan network
+    async scanNetwork() {
+        const ip = await Discovery.scanNetwork();
+        
+        if (ip) {
+            API.setIP(ip);
+            await this.connectToDevice();
+        } else {
+            Utils.showToast('❌ Không tìm thấy ESP32', 'error');
+        }
+    }
+    
+    // Manual IP
+    setManualIP() {
+        const ip = document.getElementById('manualIp').value.trim();
+        if (!ip) {
+            Utils.showToast('❌ Vui lòng nhập IP', 'error');
+            return;
+        }
+        
+        API.setIP(ip);
+        this.connectToDevice();
+    }
+    
+    // Control relay
+    async controlRelay(relay, state) {
+        if (!AppState.connected) {
+            Utils.showToast('❌ Chưa kết nối ESP32', 'error');
+            return;
+        }
+        
+        try {
+            await API.controlRelay(relay, state);
+        } catch (error) {
+            Utils.showToast('❌ Không thể điều khiển', 'error');
+            AppState.connected = false;
+            this.updateConnectionUI();
+        }
+    }
+    
+    // Run diagnostic
+    async runDiagnostic() {
+        if (!AppState.connected) {
+            Utils.showToast('❌ Chưa kết nối ESP32', 'error');
+            return;
+        }
+        
+        Utils.showToast('🔍 Đang chẩn đoán...', 'info');
+        
+        try {
+            const data = await API.runDiagnostic();
+            this.displayDiagnostic(data);
+            
+            const hasError = !data.relay1?.match || !data.relay2?.match;
+            Utils.showToast(
+                hasError ? '⚠️ Phát hiện lỗi feedback' : '✅ Hệ thống OK',
+                hasError ? 'warning' : 'success'
+            );
+            
+        } catch (error) {
+            Utils.showToast('❌ Chẩn đoán thất bại', 'error');
+        }
+    }
+    
+    // Refresh status
+    async refreshStatus() {
+        if (AppState.connected) {
+            await this.connectToDevice();
+        }
+    }
     
     // Start periodic updates
-    startPeriodicUpdates();
+    startUpdates() {
+        if (this.updateInterval) {
+            clearInterval(this.updateInterval);
+        }
+        
+        this.updateInterval = setInterval(() => {
+            if (AppState.connected) {
+                API.getStatus().then(() => this.updateUI()).catch(() => {});
+            }
+        }, CONFIG.UI.REFRESH_INTERVAL);
+    }
     
-    // Initialize charts
-    initCharts();
+    // Update UI
+    updateUI() {
+        this.updateConnectionUI();
+        this.updateStatsUI();
+        this.updateRelayUI();
+    }
     
-    // Setup event listeners
-    setupEventListeners();
+    // Update connection UI
+    updateConnectionUI() {
+        const led = document.getElementById('statusLed');
+        const text = document.getElementById('statusText');
+        const ipEl = document.getElementById('deviceIp');
+        const wifiEl = document.getElementById('wifiStrength');
+        
+        if (AppState.connected) {
+            led.className = 'status-led online';
+            text.textContent = 'Đã kết nối';
+            ipEl.textContent = AppState.deviceIP;
+            
+            // WiFi strength
+            let wifiIcon = '📶';
+            if (AppState.rssi > -50) wifiIcon = '📶';
+            else if (AppState.rssi > -70) wifiIcon = '📶';
+            else wifiIcon = '📶';
+            wifiEl.textContent = `${wifiIcon} ${AppState.rssi}dBm`;
+        } else {
+            led.className = 'status-led offline';
+            text.textContent = 'Mất kết nối';
+            ipEl.textContent = '-';
+            wifiEl.textContent = '📶 --';
+        }
+        
+        // Stats
+        document.getElementById('statConnection').textContent = 
+            AppState.connected ? 'Online' : 'Offline';
+        document.getElementById('statConnection').style.color = 
+            AppState.connected ? 'var(--success)' : 'var(--danger)';
+    }
+    
+    // Update stats UI
+    updateStatsUI() {
+        document.getElementById('statRelay1').textContent = 
+            AppState.relay1 ? 'Bật' : 'Tắt';
+        document.getElementById('statRelay2').textContent = 
+            AppState.relay2 ? 'Bật' : 'Tắt';
+        document.getElementById('statError').textContent = 
+            AppState.error ? '1' : '0';
+    }
+    
+    // Update relay UI
+    updateRelayUI() {
+        // Relay 1
+        this.updateSingleRelay(1, AppState.relay1, AppState.feedback1);
+        // Relay 2
+        this.updateSingleRelay(2, AppState.relay2, AppState.feedback2);
+    }
+    
+    updateSingleRelay(relay, output, feedback) {
+        const match = output === feedback;
+        
+        // Output
+        const outputEl = document.getElementById(`output${relay}`);
+        outputEl.textContent = output ? 'ON' : 'OFF';
+        outputEl.className = `tag ${output ? 'success' : 'danger'}`;
+        
+        // Feedback
+        const fbEl = document.getElementById(`fb${relay}`);
+        fbEl.textContent = feedback ? 'ON' : 'OFF';
+        
+        // Match
+        const matchEl = document.getElementById(`match${relay}`);
+        matchEl.textContent = match ? '✓' : '✗';
+        matchEl.className = `tag match ${match ? '' : 'error'}`;
+        
+        // Bulb
+        const bulb = document.getElementById(`bulb${relay}`);
+        if (output) {
+            bulb.classList.add('on');
+            bulb.style.opacity = '1';
+        } else {
+            bulb.classList.remove('on');
+            bulb.style.opacity = '0.5';
+        }
+        
+        // Feedback badge
+        const badge = document.getElementById(`feedback${relay}`);
+        badge.className = `feedback-badge ${match ? 'ok' : 'error'}`;
+    }
+    
+    // Display diagnostic
+    displayDiagnostic(data) {
+        const grid = document.getElementById('diagnosticGrid');
+        
+        grid.innerHTML = `
+            <div class="diagnostic-item">
+                <h4>Relay 1</h4>
+                <div class="diagnostic-row ${data.relay1?.match ? 'success' : 'error'}">
+                    <span>Output:</span>
+                    <span>${data.relay1?.output ? 'ON' : 'OFF'}</span>
+                </div>
+                <div class="diagnostic-row">
+                    <span>Feedback:</span>
+                    <span>${data.relay1?.feedback ? 'ON' : 'OFF'}</span>
+                </div>
+                <div class="diagnostic-row">
+                    <span>Match:</span>
+                    <span>${data.relay1?.match ? '✓' : '✗'}</span>
+                </div>
+            </div>
+            <div class="diagnostic-item">
+                <h4>Relay 2</h4>
+                <div class="diagnostic-row ${data.relay2?.match ? 'success' : 'error'}">
+                    <span>Output:</span>
+                    <span>${data.relay2?.output ? 'ON' : 'OFF'}</span>
+                </div>
+                <div class="diagnostic-row">
+                    <span>Feedback:</span>
+                    <span>${data.relay2?.feedback ? 'ON' : 'OFF'}</span>
+                </div>
+                <div class="diagnostic-row">
+                    <span>Match:</span>
+                    <span>${data.relay2?.match ? '✓' : '✗'}</span>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// ==================== INITIALIZE ====================
+document.addEventListener('DOMContentLoaded', () => {
+    window.app = new App();
+    window.app.init();
 });
-
-// ==================== ESP32 DISCOVERY ====================
-
-async function discoverESP32() {
-    // Try to get from localStorage
-    const savedIP = localStorage.getItem('esp32_ip');
-    if (savedIP) {
-        AppState.deviceIP = savedIP;
-        wsClient.connect(savedIP);
-        updateDeviceInfo();
-        fetchStatus();
-    }
-    
-    // Try mDNS
-    try {
-        const response = await fetch('http://esp32s3.local/api/status', {
-            timeout: CONFIG.API.TIMEOUT
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            AppState.deviceIP = data.ip;
-            localStorage.setItem('esp32_ip', data.ip);
-            wsClient.connect(data.ip);
-            updateDeviceInfo();
-        }
-    } catch (error) {
-        console.log('mDNS discovery failed');
-    }
-}
-
-// ==================== FETCH STATUS ====================
-
-async function fetchStatus() {
-    if (!AppState.deviceIP) return;
-    
-    try {
-        const response = await fetch(`http://${AppState.deviceIP}/api/status`);
-        
-        if (response.ok) {
-            const data = await response.json();
-            
-            AppState.relay1 = data.relay1;
-            AppState.relay2 = data.relay2;
-            AppState.feedback1 = data.feedback1;
-            AppState.feedback2 = data.feedback2;
-            AppState.error = data.error;
-            AppState.lastUpdate = Date.now();
-            
-            updateDeviceUI(1);
-            updateDeviceUI(2);
-            updateStats();
-            updateDiagnostic();
-        }
-    } catch (error) {
-        console.log('Fetch status failed:', error);
-    }
-}
-
-// ==================== CONTROL FUNCTIONS ====================
-
-async function controlRelay(relay, state) {
-    // Try WebSocket first
-    if (wsClient.connected) {
-        wsClient.sendControl(relay, state);
-        return;
-    }
-    
-    // Fallback to MQTT
-    if (mqttClient.connected) {
-        mqttClient.publishRelay(relay, state);
-        return;
-    }
-    
-    // Fallback to HTTP
-    try {
-        const response = await fetch(`http://${AppState.deviceIP}/api/control`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                relay: relay,
-                state: state
-            })
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success) {
-                Utils.showToast(`✅ Relay ${relay} ${state ? 'ON' : 'OFF'}`, 'success');
-            }
-        }
-    } catch (error) {
-        Utils.showToast('❌ Control failed', 'error');
-    }
-}
-
-// ==================== DIAGNOSTIC FUNCTIONS ====================
-
-async function runDiagnostic() {
-    Utils.showToast('🔍 Running diagnostic...', 'info');
-    
-    if (!AppState.deviceIP) {
-        Utils.showToast('❌ No device connected', 'error');
-        return;
-    }
-    
-    try {
-        const response = await fetch(`http://${AppState.deviceIP}/api/diagnostic`);
-        
-        if (response.ok) {
-            const data = await response.json();
-            
-            // Display diagnostic results
-            displayDiagnosticResult(data);
-            
-            // Add to error log if mismatch
-            if (!data.relay1.match) {
-                addErrorLog({
-                    errorCode: 1,
-                    message: 'Relay 1 feedback mismatch',
-                    timestamp: Date.now()
-                });
-            }
-            
-            if (!data.relay2.match) {
-                addErrorLog({
-                    errorCode: 2,
-                    message: 'Relay 2 feedback mismatch',
-                    timestamp: Date.now()
-                });
-            }
-            
-            Utils.showToast('✅ Diagnostic complete', 'success');
-        }
-    } catch (error) {
-        Utils.showToast('❌ Diagnostic failed', 'error');
-    }
-}
-
-function displayDiagnosticResult(data) {
-    const panel = document.querySelector('.diagnostic-panel');
-    
-    // Create diagnostic report
-    const report = document.createElement('div');
-    report.className = 'diagnostic-report';
-    report.innerHTML = `
-        <h4>Diagnostic Report - ${Utils.formatTime(Date.now())}</h4>
-        <div class="report-grid">
-            <div class="report-item ${data.relay1.match ? 'success' : 'error'}">
-                <span>Relay 1:</span>
-                <span>Output: ${data.relay1.output ? 'ON' : 'OFF'}</span>
-                <span>Feedback: ${data.relay1.feedback ? 'ON' : 'OFF'}</span>
-                <span>Match: ${data.relay1.match ? '✓' : '✗'}</span>
-            </div>
-            <div class="report-item ${data.relay2.match ? 'success' : 'error'}">
-                <span>Relay 2:</span>
-                <span>Output: ${data.relay2.output ? 'ON' : 'OFF'}</span>
-                <span>Feedback: ${data.relay2.feedback ? 'ON' : 'OFF'}</span>
-                <span>Match: ${data.relay2.match ? '✓' : '✗'}</span>
-            </div>
-        </div>
-    `;
-    
-    // Remove old report and add new one
-    const oldReport = document.querySelector('.diagnostic-report');
-    if (oldReport) oldReport.remove();
-    panel.insertBefore(report, document.querySelector('.btn-diagnostic'));
-}
-
-// ==================== UI UPDATE FUNCTIONS ====================
-
-function updateDeviceUI(relay) {
-    if (relay === 1) {
-        // Update output state
-        const outputEl = document.getElementById('output1');
-        outputEl.textContent = AppState.relay1 ? 'ON' : 'OFF';
-        outputEl.className = `output-state ${AppState.relay1 ? 'on' : 'off'}`;
-        
-        // Update feedback state
-        const fbEl = document.getElementById('fb1');
-        fbEl.textContent = AppState.feedback1 ? 'ON' : 'OFF';
-        fbEl.style.color = AppState.feedback1 ? '#4caf50' : '#f44336';
-        
-        // Update match indicator
-        const match = AppState.relay1 === AppState.feedback1;
-        const matchEl = document.getElementById('match1');
-        matchEl.textContent = match ? '✓' : '✗';
-        matchEl.className = `match-state ${match ? '' : 'error'}`;
-        
-        // Update feedback indicator
-        const fbIndicator = document.getElementById('feedback1');
-        fbIndicator.className = `feedback-indicator ${match ? 'ok' : 'error'}`;
-        
-        // Update power bar
-        const powerBar = document.getElementById('power1');
-        powerBar.style.width = AppState.relay1 ? '100%' : '0%';
-        powerBar.style.background = AppState.relay1 ? 
-            'linear-gradient(90deg, #4caf50, #8bc34a)' : 
-            'linear-gradient(90deg, #f44336, #ff9800)';
-            
-    } else if (relay === 2) {
-        // Update output state
-        const outputEl = document.getElementById('output2');
-        outputEl.textContent = AppState.relay2 ? 'ON' : 'OFF';
-        outputEl.className = `output-state ${AppState.relay2 ? 'on' : 'off'}`;
-        
-        // Update feedback state
-        const fbEl = document.getElementById('fb2');
-        fbEl.textContent = AppState.feedback2 ? 'ON' : 'OFF';
-        fbEl.style.color = AppState.feedback2 ? '#4caf50' : '#f44336';
-        
-        // Update match indicator
-        const match = AppState.relay2 === AppState.feedback2;
-        const matchEl = document.getElementById('match2');
-        matchEl.textContent = match ? '✓' : '✗';
-        matchEl.className = `match-state ${match ? '' : 'error'}`;
-        
-        // Update feedback indicator
-        const fbIndicator = document.getElementById('feedback2');
-        fbIndicator.className = `feedback-indicator ${match ? 'ok' : 'error'}`;
-        
-        // Update power bar
-        const powerBar = document.getElementById('power2');
-        powerBar.style.width = AppState.relay2 ? '100%' : '0%';
-        powerBar.style.background = AppState.relay2 ? 
-            'linear-gradient(90deg, #4caf50, #8bc34a)' : 
-            'linear-gradient(90deg, #f44336, #ff9800)';
-    }
-}
-
-function updateStats() {
-    // Update connection stat
-    const statConnection = document.getElementById('statConnection');
-    statConnection.textContent = (AppState.mqttConnected || AppState.wsConnected) ? 'Online' : 'Offline';
-    statConnection.style.color = (AppState.mqttConnected || AppState.wsConnected) ? '#4caf50' : '#f44336';
-    
-    // Update relay stats
-    document.getElementById('statRelay1').textContent = AppState.relay1 ? 'Bật' : 'Tắt';
-    document.getElementById('statRelay2').textContent = AppState.relay2 ? 'Bật' : 'Tắt';
-    
-    // Update error stat
-    document.getElementById('statError').textContent = AppState.errorLogs.length;
-}
-
-function updateConnectionStatus() {
-    const statusEl = document.getElementById('connectionStatus');
-    const indicator = statusEl.querySelector('.status-indicator');
-    const text = statusEl.querySelector('span');
-    
-    if (AppState.mqttConnected || AppState.wsConnected) {
-        indicator.className = 'status-indicator online';
-        text.textContent = 'Đã kết nối';
-        
-        // Show which connection
-        if (AppState.wsConnected) {
-            text.textContent += ' (WebSocket)';
-        } else if (AppState.mqttConnected) {
-            text.textContent += ' (MQTT)';
-        }
-    } else {
-        indicator.className = 'status-indicator offline';
-        text.textContent = 'Mất kết nối';
-    }
-}
-
-function updateDeviceInfo() {
-    if (AppState.deviceIP) {
-        document.getElementById('deviceIP').textContent = `IP: ${AppState.deviceIP}`;
-    }
-}
-
-function addErrorLog(error) {
-    AppState.errorLogs.unshift({
-        ...error,
-        id: Utils.generateId()
-    });
-    
-    // Keep only last 10 errors
-    if (AppState.errorLogs.length > 10) {
-        AppState.errorLogs.pop();
-    }
-    
-    // Update error log UI
-    const errorLogEl = document.getElementById('errorLog');
-    errorLogEl.innerHTML = AppState.errorLogs.map(err => `
-        <div class="error-entry">
-            <span class="error-time">${Utils.formatTime(err.timestamp)}</span>
-            <span class="error-code">[${err.errorCode}]</span>
-            <span class="error-message">${err.message}</span>
-        </div>
-    `).join('');
-}
-
-function refreshStatus() {
-    fetchStatus();
-    Utils.showToast('🔄 Refreshing status...', 'info');
-}
-
-// ==================== CHARTS ====================
-
-let charts = {};
-
-function initCharts() {
-    // Initialize feedback waveform charts
-    const canvas1 = document.getElementById('graph1');
-    const canvas2 = document.getElementById('graph2');
-    
-    if (canvas1) {
-        charts.graph1 = new Chart(canvas1.getContext('2d'), {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Feedback 1',
-                    data: [],
-                    borderColor: '#4caf50',
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 1
-                    }
-                }
-            }
-        });
-    }
-    
-    if (canvas2) {
-        charts.graph2 = new Chart(canvas2.getContext('2d'), {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Feedback 2',
-                    data: [],
-                    borderColor: '#2196f3',
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 1
-                    }
-                }
-            }
-        });
-    }
-}
-
-function updateCharts() {
-    // Add new feedback values
-    AppState.feedbackHistory1.push(AppState.feedback1 ? 1 : 0);
-    AppState.feedbackHistory2.push(AppState.feedback2 ? 1 : 0);
-    
-    // Keep only last 50 samples
-    if (AppState.feedbackHistory1.length > 50) {
-        AppState.feedbackHistory1.shift();
-        AppState.feedbackHistory2.shift();
-    }
-    
-    // Update chart data
-    if (charts.graph1) {
-        charts.graph1.data.labels = Array.from({length: AppState.feedbackHistory1.length}, (_, i) => i);
-        charts.graph1.data.datasets[0].data = AppState.feedbackHistory1;
-        charts.graph1.update();
-    }
-    
-    if (charts.graph2) {
-        charts.graph2.data.labels = Array.from({length: AppState.feedbackHistory2.length}, (_, i) => i);
-        charts.graph2.data.datasets[0].data = AppState.feedbackHistory2;
-        charts.graph2.update();
-    }
-}
-
-// ==================== PERIODIC UPDATES ====================
-
-function startPeriodicUpdates() {
-    // Update status every 2 seconds
-    setInterval(() => {
-        if (AppState.deviceIP) {
-            fetchStatus();
-        }
-    }, CONFIG.UI.REFRESH_INTERVAL);
-    
-    // Update charts every 500ms
-    setInterval(() => {
-        updateCharts();
-    }, 500);
-    
-    // Update diagnostic display
-    setInterval(() => {
-        updateDiagnostic();
-    }, 1000);
-}
-
-function updateDiagnostic() {
-    // Update waveform indicators
-    const waveform1 = document.getElementById('waveform1');
-    const waveform2 = document.getElementById('waveform2');
-    
-    if (waveform1) {
-        const match = AppState.relay1 === AppState.feedback1;
-        waveform1.innerHTML = `<div class="signal ${match ? 'good' : 'bad'}">
-            ${match ? '✓ Feedback OK' : '✗ Feedback Error'}
-        </div>`;
-    }
-    
-    if (waveform2) {
-        const match = AppState.relay2 === AppState.feedback2;
-        waveform2.innerHTML = `<div class="signal ${match ? 'good' : 'bad'}">
-            ${match ? '✓ Feedback OK' : '✗ Feedback Error'}
-        </div>`;
-    }
-}
-
-// ==================== EVENT LISTENERS ====================
-
-function setupEventListeners() {
-    // Manual IP input
-    const ipInput = document.createElement('div');
-    ipInput.className = 'ip-input-container';
-    ipInput.innerHTML = `
-        <input type="text" id="manualIP" placeholder="192.168.1.xxx">
-        <button onclick="setManualIP()">Connect</button>
-    `;
-    document.querySelector('.device-info').appendChild(ipInput);
-}
-
-function setManualIP() {
-    const ip = document.getElementById('manualIP').value;
-    if (ip) {
-        AppState.deviceIP = ip;
-        localStorage.setItem('esp32_ip', ip);
-        wsClient.connect(ip);
-        updateDeviceInfo();
-        fetchStatus();
-        Utils.showToast(`🔌 Connecting to ${ip}...`, 'info');
-    }
-}
-
-// ==================== EXPORT GLOBAL FUNCTIONS ====================
-
-window.controlRelay = controlRelay;
-window.runDiagnostic = runDiagnostic;
-window.refreshStatus = refreshStatus;
-window.setManualIP = setManualIP;
