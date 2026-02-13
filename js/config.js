@@ -16,6 +16,25 @@ const CONFIG = {
         DISCOVERY: '/api/discovery'
     },
     
+    // ✅ THÊM MQTT CONFIG
+    MQTT: {
+        BROKER: 'ws://test.mosquitto.org:8080',
+        TOPICS: {
+            RELAY1: 'home/esp32/relay1',
+            RELAY2: 'home/esp32/relay2',
+            FEEDBACK1: 'home/esp32/feedback1',
+            FEEDBACK2: 'home/esp32/feedback2',
+            STATUS: 'home/esp32/status',
+            ERROR: 'home/esp32/error'
+        }
+    },
+    
+    // ✅ THÊM WEBSOCKET CONFIG
+    WEBSOCKET: {
+        PORT: 81,
+        RECONNECT_INTERVAL: 5000
+    },
+    
     // UI settings
     UI: {
         REFRESH_INTERVAL: 3000,
@@ -35,6 +54,8 @@ const AppState = {
     // Device info
     deviceIP: localStorage.getItem(CONFIG.STORAGE.ESP_IP) || null,
     connected: false,
+    mqttConnected: false,
+    wsConnected: false,
     
     // Relay states
     relay1: false,
