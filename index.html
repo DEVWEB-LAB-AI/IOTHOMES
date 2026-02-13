@@ -2,90 +2,87 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32-S3 Relay Controller</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ESP32-S3 · Relay Controller</title>
     
     <!-- CSS -->
     <link rel="stylesheet" href="css/style.css">
     
-    <!-- PWA Support -->
+    <!-- PWA -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4a6fa5">
-    
-    <!-- MQTT -->
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body>
-    <div class="app-container">
+    <div class="app">
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="logo">
                 <h2>⚡ ESP32-S3</h2>
-                <p>Relay Controller</p>
+                <p>RELAY CONTROLLER</p>
             </div>
             
-            <nav class="nav-menu">
+            <nav class="nav">
                 <a href="#dashboard" class="active">
-                    <span class="icon">📊</span>
-                    Dashboard
+                    <span>📊</span> Dashboard
                 </a>
                 <a href="#devices">
-                    <span class="icon">💡</span>
-                    Thiết bị
+                    <span>💡</span> Thiết bị
                 </a>
                 <a href="#diagnostic">
-                    <span class="icon">🔍</span>
-                    Chẩn đoán
-                </a>
-                <a href="#settings">
-                    <span class="icon">⚙️</span>
-                    Cài đặt
+                    <span>🔍</span> Chẩn đoán
                 </a>
             </nav>
             
-            <div class="connection-status" id="connectionStatus">
-                <div class="status-indicator offline"></div>
-                <span>Đang kết nối...</span>
+            <!-- Connection Status -->
+            <div class="connection-card" id="connectionCard">
+                <div class="status-row">
+                    <div class="status-led" id="statusLed"></div>
+                    <span id="statusText">Đang tìm thiết bị...</span>
+                </div>
+                <div class="device-ip" id="deviceIp">-</div>
+                <button class="btn-scan" onclick="window.app?.scanNetwork()">
+                    🔄 Quét mạng
+                </button>
             </div>
         </aside>
         
         <!-- Main Content -->
-        <main class="main-content">
+        <main class="main">
             <header class="header">
                 <h1>Dashboard</h1>
-                <div class="device-info">
-                    <span id="deviceIP">-</span>
-                    <button class="btn-refresh" onclick="refreshStatus()">
+                <div class="header-actions">
+                    <span class="wifi-strength" id="wifiStrength">📶 --</span>
+                    <button class="btn-refresh" onclick="window.app?.refreshStatus()">
                         🔄
                     </button>
                 </div>
             </header>
             
-            <!-- Stats Cards -->
+            <!-- Stats Grid -->
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-icon">🔌</div>
+                    <div class="stat-icon blue">🔌</div>
                     <div class="stat-info">
                         <h3>Trạng thái</h3>
                         <p id="statConnection">Offline</p>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon">💡</div>
+                    <div class="stat-icon green">💡</div>
                     <div class="stat-info">
                         <h3>Đèn 1</h3>
                         <p id="statRelay1">Tắt</p>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon">💡</div>
+                    <div class="stat-icon green">💡</div>
                     <div class="stat-info">
                         <h3>Đèn 2</h3>
                         <p id="statRelay2">Tắt</p>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon">⚠️</div>
+                    <div class="stat-icon red">⚠️</div>
                     <div class="stat-info">
                         <h3>Lỗi</h3>
                         <p id="statError">0</p>
@@ -93,122 +90,119 @@
                 </div>
             </div>
             
-            <!-- Relay Control Cards -->
+            <!-- Relay Cards -->
             <div class="devices-grid">
                 <!-- Relay 1 -->
-                <div class="device-card" id="device1">
+                <div class="device-card">
                     <div class="device-header">
-                        <h3>Đèn 1</h3>
-                        <div class="feedback-indicator" id="feedback1"></div>
+                        <h3>ĐÈN 1</h3>
+                        <div class="feedback-badge" id="feedback1"></div>
+                    </div>
+                    
+                    <div class="device-preview">
+                        <div class="bulb-icon" id="bulb1">💡</div>
                     </div>
                     
                     <div class="device-status">
-                        <div class="status-row">
-                            <span>Output:</span>
-                            <span class="output-state" id="output1">OFF</span>
+                        <div class="status-item">
+                            <span>Output</span>
+                            <span class="tag" id="output1">OFF</span>
                         </div>
-                        <div class="status-row">
-                            <span>Feedback:</span>
-                            <span class="feedback-state" id="fb1">OFF</span>
+                        <div class="status-item">
+                            <span>Feedback</span>
+                            <span class="tag" id="fb1">OFF</span>
                         </div>
-                        <div class="status-row">
-                            <span>Match:</span>
-                            <span class="match-state" id="match1">✓</span>
+                        <div class="status-item">
+                            <span>Match</span>
+                            <span class="tag match" id="match1">✓</span>
                         </div>
                     </div>
                     
                     <div class="device-controls">
-                        <button class="btn-on" onclick="controlRelay(1, true)">
-                            <span class="btn-icon">💡</span>
-                            BẬT
+                        <button class="btn-on" onclick="window.app?.controlRelay(1, true)">
+                            <span>💡</span> BẬT
                         </button>
-                        <button class="btn-off" onclick="controlRelay(1, false)">
-                            <span class="btn-icon">⭕</span>
-                            TẮT
+                        <button class="btn-off" onclick="window.app?.controlRelay(1, false)">
+                            <span>⭕</span> TẮT
                         </button>
-                    </div>
-                    
-                    <div class="power-meter">
-                        <div class="power-bar" id="power1" style="width: 0%"></div>
                     </div>
                 </div>
                 
                 <!-- Relay 2 -->
-                <div class="device-card" id="device2">
+                <div class="device-card">
                     <div class="device-header">
-                        <h3>Đèn 2</h3>
-                        <div class="feedback-indicator" id="feedback2"></div>
+                        <h3>ĐÈN 2</h3>
+                        <div class="feedback-badge" id="feedback2"></div>
+                    </div>
+                    
+                    <div class="device-preview">
+                        <div class="bulb-icon" id="bulb2">💡</div>
                     </div>
                     
                     <div class="device-status">
-                        <div class="status-row">
-                            <span>Output:</span>
-                            <span class="output-state" id="output2">OFF</span>
+                        <div class="status-item">
+                            <span>Output</span>
+                            <span class="tag" id="output2">OFF</span>
                         </div>
-                        <div class="status-row">
-                            <span>Feedback:</span>
-                            <span class="feedback-state" id="fb2">OFF</span>
+                        <div class="status-item">
+                            <span>Feedback</span>
+                            <span class="tag" id="fb2">OFF</span>
                         </div>
-                        <div class="status-row">
-                            <span>Match:</span>
-                            <span class="match-state" id="match2">✓</span>
+                        <div class="status-item">
+                            <span>Match</span>
+                            <span class="tag match" id="match2">✓</span>
                         </div>
                     </div>
                     
                     <div class="device-controls">
-                        <button class="btn-on" onclick="controlRelay(2, true)">
-                            <span class="btn-icon">💡</span>
-                            BẬT
+                        <button class="btn-on" onclick="window.app?.controlRelay(2, true)">
+                            <span>💡</span> BẬT
                         </button>
-                        <button class="btn-off" onclick="controlRelay(2, false)">
-                            <span class="btn-icon">⭕</span>
-                            TẮT
+                        <button class="btn-off" onclick="window.app?.controlRelay(2, false)">
+                            <span>⭕</span> TẮT
                         </button>
                     </div>
-                    
-                    <div class="power-meter">
-                        <div class="power-bar" id="power2" style="width: 0%"></div>
-                    </div>
+                </div>
+            </div>
+            
+            <!-- Manual IP Input -->
+            <div class="manual-section">
+                <div class="manual-header">
+                    <span>🔧 Cấu hình thủ công</span>
+                    <button class="btn-toggle" onclick="this.parentElement.parentElement.classList.toggle('expanded')">
+                        ▼
+                    </button>
+                </div>
+                <div class="manual-content">
+                    <input type="text" id="manualIp" placeholder="192.168.1.100" 
+                           value="<?php echo $_GET['ip'] ?? ''; ?>">
+                    <button onclick="window.app?.setManualIP()">
+                        Kết nối
+                    </button>
+                    <p class="hint">💡 Tìm IP trong Serial Monitor của ESP32</p>
                 </div>
             </div>
             
             <!-- Diagnostic Panel -->
             <div class="diagnostic-panel">
-                <h2>🔍 Chẩn đoán hệ thống</h2>
-                
-                <div class="diagnostic-grid">
-                    <div class="diagnostic-item">
-                        <h4>Relay 1 Feedback</h4>
-                        <div class="waveform" id="waveform1"></div>
-                        <canvas id="graph1" width="300" height="100"></canvas>
-                    </div>
-                    
-                    <div class="diagnostic-item">
-                        <h4>Relay 2 Feedback</h4>
-                        <div class="waveform" id="waveform2"></div>
-                        <canvas id="graph2" width="300" height="100"></canvas>
-                    </div>
+                <h2>🔍 Chẩn đoán</h2>
+                <div class="diagnostic-grid" id="diagnosticGrid">
+                    <!-- JS sẽ fill -->
                 </div>
-                
-                <div class="error-log">
-                    <h3>📋 Error Log</h3>
-                    <div id="errorLog"></div>
-                </div>
-                
-                <button class="btn-diagnostic" onclick="runDiagnostic()">
-                    🏥 Chạy chẩn đoán
+                <button class="btn-diagnostic" onclick="window.app?.runDiagnostic()">
+                    🏥 Chạy kiểm tra
                 </button>
             </div>
         </main>
     </div>
     
-    <!-- Toast Notification -->
+    <!-- Toast -->
     <div id="toast" class="toast hidden"></div>
     
     <!-- JavaScript -->
     <script src="js/config.js"></script>
-    <script src="js/mqtt.js"></script>
-    <script src="js/websocket.js"></script>
+    <script src="js/discovery.js"></script>
+    <script src="js/api.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
