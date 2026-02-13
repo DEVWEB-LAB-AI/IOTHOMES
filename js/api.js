@@ -3,7 +3,7 @@ class ESP32API {
     constructor() {
         this.baseURL = null;
         this.retryCount = 0;
-        this.maxRetries = 3;
+        this.maxRetries = 2;
     }
     
     // Set device IP
@@ -14,8 +14,10 @@ class ESP32API {
         localStorage.setItem(CONFIG.STORAGE.LAST_CONNECT, Date.now());
         
         // Update UI
-        document.getElementById('deviceIp').textContent = ip;
-        document.getElementById('manualIp').value = ip;
+        const ipEl = document.getElementById('deviceIp');
+        const manualIp = document.getElementById('manualIp');
+        if (ipEl) ipEl.textContent = ip;
+        if (manualIp) manualIp.value = ip;
     }
     
     // Clear connection
@@ -35,24 +37,37 @@ class ESP32API {
         const url = `${this.baseURL}${endpoint}`;
         const defaultOptions = {
             headers: { 'Content-Type': 'application/json' },
-            timeout: 5000
+            mode: 'cors',
+            cache: 'no-cache'
         };
         
+        // Add timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        
         try {
-            const response = await fetch(url, { ...defaultOptions, ...options });
+            const response = await fetch(url, { 
+                ...defaultOptions, 
+                ...options,
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
             
             const data = await response.json();
+            this.retryCount = 0;
             return data;
             
         } catch (error) {
+            clearTimeout(timeoutId);
             console.error(`API Error (${endpoint}):`, error);
             
             // Retry logic
-            if (this.retryCount < this.maxRetries) {
+            if (this.retryCount < this.maxRetries && error.name !== 'AbortError') {
                 this.retryCount++;
                 await this.delay(1000 * this.retryCount);
                 return this.request(endpoint, options);
