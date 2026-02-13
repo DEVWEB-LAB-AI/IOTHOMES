@@ -1,92 +1,214 @@
 <!DOCTYPE html>
-<html>
+<html lang="vi">
 <head>
-    <title>MQTT Relay Control</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32-S3 Relay Controller</title>
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- PWA Support -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4a6fa5">
+    
+    <!-- MQTT -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-    <style>
-        button {
-            padding: 20px 40px;
-            font-size: 24px;
-            margin: 10px;
-            border-radius: 10px;
-            border: none;
-            cursor: pointer;
-        }
-        .on { background: #4CAF50; color: white; }
-        .off { background: #f44336; color: white; }
-        .status {
-            font-size: 20px;
-            margin: 20px;
-            padding: 20px;
-            border-radius: 10px;
-            background: #f0f0f0;
-        }
-    </style>
 </head>
 <body>
-    <h1>🚀 ĐIỀU KHIỂN RELAY QUA 4G</h1>
-    
-    <div class="status">
-        <p>📶 Kết nối: <span id="mqtt-status">Đang kết nối...</span></p>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>⚡ ESP32-S3</h2>
+                <p>Relay Controller</p>
+            </div>
+            
+            <nav class="nav-menu">
+                <a href="#dashboard" class="active">
+                    <span class="icon">📊</span>
+                    Dashboard
+                </a>
+                <a href="#devices">
+                    <span class="icon">💡</span>
+                    Thiết bị
+                </a>
+                <a href="#diagnostic">
+                    <span class="icon">🔍</span>
+                    Chẩn đoán
+                </a>
+                <a href="#settings">
+                    <span class="icon">⚙️</span>
+                    Cài đặt
+                </a>
+            </nav>
+            
+            <div class="connection-status" id="connectionStatus">
+                <div class="status-indicator offline"></div>
+                <span>Đang kết nối...</span>
+            </div>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <h1>Dashboard</h1>
+                <div class="device-info">
+                    <span id="deviceIP">-</span>
+                    <button class="btn-refresh" onclick="refreshStatus()">
+                        🔄
+                    </button>
+                </div>
+            </header>
+            
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">🔌</div>
+                    <div class="stat-info">
+                        <h3>Trạng thái</h3>
+                        <p id="statConnection">Offline</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">💡</div>
+                    <div class="stat-info">
+                        <h3>Đèn 1</h3>
+                        <p id="statRelay1">Tắt</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">💡</div>
+                    <div class="stat-info">
+                        <h3>Đèn 2</h3>
+                        <p id="statRelay2">Tắt</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⚠️</div>
+                    <div class="stat-info">
+                        <h3>Lỗi</h3>
+                        <p id="statError">0</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Relay Control Cards -->
+            <div class="devices-grid">
+                <!-- Relay 1 -->
+                <div class="device-card" id="device1">
+                    <div class="device-header">
+                        <h3>Đèn 1</h3>
+                        <div class="feedback-indicator" id="feedback1"></div>
+                    </div>
+                    
+                    <div class="device-status">
+                        <div class="status-row">
+                            <span>Output:</span>
+                            <span class="output-state" id="output1">OFF</span>
+                        </div>
+                        <div class="status-row">
+                            <span>Feedback:</span>
+                            <span class="feedback-state" id="fb1">OFF</span>
+                        </div>
+                        <div class="status-row">
+                            <span>Match:</span>
+                            <span class="match-state" id="match1">✓</span>
+                        </div>
+                    </div>
+                    
+                    <div class="device-controls">
+                        <button class="btn-on" onclick="controlRelay(1, true)">
+                            <span class="btn-icon">💡</span>
+                            BẬT
+                        </button>
+                        <button class="btn-off" onclick="controlRelay(1, false)">
+                            <span class="btn-icon">⭕</span>
+                            TẮT
+                        </button>
+                    </div>
+                    
+                    <div class="power-meter">
+                        <div class="power-bar" id="power1" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <!-- Relay 2 -->
+                <div class="device-card" id="device2">
+                    <div class="device-header">
+                        <h3>Đèn 2</h3>
+                        <div class="feedback-indicator" id="feedback2"></div>
+                    </div>
+                    
+                    <div class="device-status">
+                        <div class="status-row">
+                            <span>Output:</span>
+                            <span class="output-state" id="output2">OFF</span>
+                        </div>
+                        <div class="status-row">
+                            <span>Feedback:</span>
+                            <span class="feedback-state" id="fb2">OFF</span>
+                        </div>
+                        <div class="status-row">
+                            <span>Match:</span>
+                            <span class="match-state" id="match2">✓</span>
+                        </div>
+                    </div>
+                    
+                    <div class="device-controls">
+                        <button class="btn-on" onclick="controlRelay(2, true)">
+                            <span class="btn-icon">💡</span>
+                            BẬT
+                        </button>
+                        <button class="btn-off" onclick="controlRelay(2, false)">
+                            <span class="btn-icon">⭕</span>
+                            TẮT
+                        </button>
+                    </div>
+                    
+                    <div class="power-meter">
+                        <div class="power-bar" id="power2" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Diagnostic Panel -->
+            <div class="diagnostic-panel">
+                <h2>🔍 Chẩn đoán hệ thống</h2>
+                
+                <div class="diagnostic-grid">
+                    <div class="diagnostic-item">
+                        <h4>Relay 1 Feedback</h4>
+                        <div class="waveform" id="waveform1"></div>
+                        <canvas id="graph1" width="300" height="100"></canvas>
+                    </div>
+                    
+                    <div class="diagnostic-item">
+                        <h4>Relay 2 Feedback</h4>
+                        <div class="waveform" id="waveform2"></div>
+                        <canvas id="graph2" width="300" height="100"></canvas>
+                    </div>
+                </div>
+                
+                <div class="error-log">
+                    <h3>📋 Error Log</h3>
+                    <div id="errorLog"></div>
+                </div>
+                
+                <button class="btn-diagnostic" onclick="runDiagnostic()">
+                    🏥 Chạy chẩn đoán
+                </button>
+            </div>
+        </main>
     </div>
     
-    <h2>🔌 RELAY 1</h2>
-    <button class="on" onclick="controlRelay1('ON')">BẬT</button>
-    <button class="off" onclick="controlRelay1('OFF')">TẮT</button>
-    <p>Feedback 1: <span id="fb1">0</span></p>
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden"></div>
     
-    <h2>🔌 RELAY 2</h2>
-    <button class="on" onclick="controlRelay2('ON')">BẬT</button>
-    <button class="off" onclick="controlRelay2('OFF')">TẮT</button>
-    <p>Feedback 2: <span id="fb2">0</span></p>
-
-    <script>
-        // Cấu hình MQTT - GIỐNG CODE ESP32
-        const mqttConfig = {
-            host: 'your-cluster.hivemq.cloud',
-            port: 8884,  // WebSocket port
-            username: 'your-username',
-            password: 'your-password'
-        };
-        
-        const TOPIC_RELAY1 = 'home/relay1';
-        const TOPIC_RELAY2 = 'home/relay2';
-        const TOPIC_FB1 = 'home/feedback1';
-        const TOPIC_FB2 = 'home/feedback2';
-        
-        // Kết nối MQTT
-        const client = mqtt.connect(`wss://${mqttConfig.host}:${mqttConfig.port}`, {
-            username: mqttConfig.username,
-            password: mqttConfig.password
-        });
-        
-        client.on('connect', () => {
-            document.getElementById('mqtt-status').innerHTML = '✅ Đã kết nối';
-            
-            // Subscribe feedback topics
-            client.subscribe(TOPIC_FB1);
-            client.subscribe(TOPIC_FB2);
-        });
-        
-        // Nhận feedback
-        client.on('message', (topic, message) => {
-            if (topic === TOPIC_FB1) {
-                document.getElementById('fb1').innerHTML = message.toString();
-            }
-            if (topic === TOPIC_FB2) {
-                document.getElementById('fb2').innerHTML = message.toString();
-            }
-        });
-        
-        // Điều khiển relay
-        function controlRelay1(state) {
-            client.publish(TOPIC_RELAY1, state);
-        }
-        
-        function controlRelay2(state) {
-            client.publish(TOPIC_RELAY2, state);
-        }
-    </script>
+    <!-- JavaScript -->
+    <script src="js/config.js"></script>
+    <script src="js/mqtt.js"></script>
+    <script src="js/websocket.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>
