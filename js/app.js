@@ -3,7 +3,7 @@ class App {
     constructor() {
         this.initialized = false;
         this.updateInterval = null;
-        window.app = this; // Global access
+        window.app = this;
     }
     
     // Initialize app
@@ -38,6 +38,7 @@ class App {
             console.log('Connection failed:', error);
             AppState.connected = false;
             this.updateConnectionUI();
+            Utils.showToast('❌ Không thể kết nối ESP32', 'error');
         }
     }
     
@@ -120,7 +121,12 @@ class App {
         
         this.updateInterval = setInterval(() => {
             if (AppState.connected) {
-                API.getStatus().then(() => this.updateUI()).catch(() => {});
+                API.getStatus()
+                    .then(() => this.updateUI())
+                    .catch(() => {
+                        AppState.connected = false;
+                        this.updateConnectionUI();
+                    });
             }
         }, CONFIG.UI.REFRESH_INTERVAL);
     }
@@ -139,17 +145,16 @@ class App {
         const ipEl = document.getElementById('deviceIp');
         const wifiEl = document.getElementById('wifiStrength');
         
+        if (!led || !text || !ipEl || !wifiEl) return;
+        
         if (AppState.connected) {
             led.className = 'status-led online';
             text.textContent = 'Đã kết nối';
-            ipEl.textContent = AppState.deviceIP;
+            ipEl.textContent = AppState.deviceIP || '-';
             
             // WiFi strength
             let wifiIcon = '📶';
-            if (AppState.rssi > -50) wifiIcon = '📶';
-            else if (AppState.rssi > -70) wifiIcon = '📶';
-            else wifiIcon = '📶';
-            wifiEl.textContent = `${wifiIcon} ${AppState.rssi}dBm`;
+            wifiEl.textContent = `${wifiIcon} ${AppState.rssi || 0}dBm`;
         } else {
             led.className = 'status-led offline';
             text.textContent = 'Mất kết nối';
@@ -158,27 +163,27 @@ class App {
         }
         
         // Stats
-        document.getElementById('statConnection').textContent = 
-            AppState.connected ? 'Online' : 'Offline';
-        document.getElementById('statConnection').style.color = 
-            AppState.connected ? 'var(--success)' : 'var(--danger)';
+        const statConnection = document.getElementById('statConnection');
+        if (statConnection) {
+            statConnection.textContent = AppState.connected ? 'Online' : 'Offline';
+            statConnection.style.color = AppState.connected ? 'var(--success)' : 'var(--danger)';
+        }
     }
     
     // Update stats UI
     updateStatsUI() {
-        document.getElementById('statRelay1').textContent = 
-            AppState.relay1 ? 'Bật' : 'Tắt';
-        document.getElementById('statRelay2').textContent = 
-            AppState.relay2 ? 'Bật' : 'Tắt';
-        document.getElementById('statError').textContent = 
-            AppState.error ? '1' : '0';
+        const statRelay1 = document.getElementById('statRelay1');
+        const statRelay2 = document.getElementById('statRelay2');
+        const statError = document.getElementById('statError');
+        
+        if (statRelay1) statRelay1.textContent = AppState.relay1 ? 'Bật' : 'Tắt';
+        if (statRelay2) statRelay2.textContent = AppState.relay2 ? 'Bật' : 'Tắt';
+        if (statError) statError.textContent = AppState.error ? '1' : '0';
     }
     
     // Update relay UI
     updateRelayUI() {
-        // Relay 1
         this.updateSingleRelay(1, AppState.relay1, AppState.feedback1);
-        // Relay 2
         this.updateSingleRelay(2, AppState.relay2, AppState.feedback2);
     }
     
@@ -187,36 +192,47 @@ class App {
         
         // Output
         const outputEl = document.getElementById(`output${relay}`);
-        outputEl.textContent = output ? 'ON' : 'OFF';
-        outputEl.className = `tag ${output ? 'success' : 'danger'}`;
+        if (outputEl) {
+            outputEl.textContent = output ? 'ON' : 'OFF';
+            outputEl.className = `tag ${output ? 'tag-on' : 'tag-off'}`;
+        }
         
         // Feedback
         const fbEl = document.getElementById(`fb${relay}`);
-        fbEl.textContent = feedback ? 'ON' : 'OFF';
+        if (fbEl) {
+            fbEl.textContent = feedback ? 'ON' : 'OFF';
+        }
         
         // Match
         const matchEl = document.getElementById(`match${relay}`);
-        matchEl.textContent = match ? '✓' : '✗';
-        matchEl.className = `tag match ${match ? '' : 'error'}`;
+        if (matchEl) {
+            matchEl.textContent = match ? '✓' : '✗';
+            matchEl.className = `tag match ${match ? '' : 'error'}`;
+        }
         
         // Bulb
         const bulb = document.getElementById(`bulb${relay}`);
-        if (output) {
-            bulb.classList.add('on');
-            bulb.style.opacity = '1';
-        } else {
-            bulb.classList.remove('on');
-            bulb.style.opacity = '0.5';
+        if (bulb) {
+            if (output) {
+                bulb.classList.add('on');
+                bulb.style.opacity = '1';
+            } else {
+                bulb.classList.remove('on');
+                bulb.style.opacity = '0.5';
+            }
         }
         
         // Feedback badge
         const badge = document.getElementById(`feedback${relay}`);
-        badge.className = `feedback-badge ${match ? 'ok' : 'error'}`;
+        if (badge) {
+            badge.className = `feedback-badge ${match ? 'ok' : 'error'}`;
+        }
     }
     
     // Display diagnostic
     displayDiagnostic(data) {
         const grid = document.getElementById('diagnosticGrid');
+        if (!grid) return;
         
         grid.innerHTML = `
             <div class="diagnostic-item">
