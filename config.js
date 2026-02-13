@@ -1,83 +1,64 @@
-// ==================== CẤU HÌNH HỆ THỐNG ====================
-
+// ==================== CONFIGURATION ====================
 const CONFIG = {
-    // MQTT Configuration
-    MQTT: {
-        BROKER: 'wss://test.mosquitto.org:8081',  // WebSocket MQTT
-        TOPICS: {
-            RELAY1: 'home/esp32/relay1',
-            RELAY2: 'home/esp32/relay2',
-            FEEDBACK1: 'home/esp32/feedback1',
-            FEEDBACK2: 'home/esp32/feedback2',
-            STATUS: 'home/esp32/status',
-            ERROR: 'home/esp32/error'
-        }
+    // Discovery settings
+    DISCOVERY: {
+        TIMEOUT: 1000,
+        MAX_RETRIES: 3,
+        PORTS: [80, 8080],
+        MDNS_HOST: 'esp32s3.local'
     },
     
-    // WebSocket Configuration (Direct to ESP32)
-    WEBSOCKET: {
-        PORT: 81,
-        RECONNECT_INTERVAL: 3000
-    },
-    
-    // HTTP API
+    // API endpoints
     API: {
-        TIMEOUT: 5000,
-        RETRY_COUNT: 3
+        STATUS: '/api/status',
+        CONTROL: '/api/control',
+        DIAGNOSTIC: '/api/diagnostic',
+        DISCOVERY: '/api/discovery'
     },
     
-    // UI Settings
+    // UI settings
     UI: {
-        REFRESH_INTERVAL: 2000,
-        ANIMATION_DURATION: 300,
-        TOAST_DURATION: 3000
+        REFRESH_INTERVAL: 3000,
+        TOAST_DURATION: 3000,
+        SCAN_TIMEOUT: 5000
     },
     
-    // Diagnostic Settings
-    DIAGNOSTIC: {
-        SAMPLES: 50,
-        INTERVAL: 100
+    // Storage keys
+    STORAGE: {
+        ESP_IP: 'esp32_ip',
+        LAST_CONNECT: 'esp32_last_connect'
     }
 };
 
-// ==================== BIẾN TOÀN CỤC ====================
-
-let AppState = {
-    // Connection status
-    mqttConnected: false,
-    wsConnected: false,
+// ==================== APP STATE ====================
+const AppState = {
+    // Device info
+    deviceIP: localStorage.getItem(CONFIG.STORAGE.ESP_IP) || null,
+    connected: false,
     
-    // Device status
+    // Relay states
     relay1: false,
     relay2: false,
     feedback1: false,
     feedback2: false,
     error: false,
     
-    // Device info
-    deviceIP: null,
+    // Network
+    rssi: 0,
     lastUpdate: null,
     
-    // History
-    feedbackHistory1: [],
-    feedbackHistory2: [],
+    // Diagnostic
     errorLogs: []
 };
 
-// ==================== UTILITY FUNCTIONS ====================
-
+// ==================== UTILITIES ====================
 const Utils = {
-    // Format timestamp
-    formatTime: (timestamp) => {
-        const date = new Date(timestamp);
-        return date.toLocaleTimeString('vi-VN');
-    },
-    
-    // Show toast notification
-    showToast: (message, type = 'info') => {
+    showToast(message, type = 'info') {
         const toast = document.getElementById('toast');
+        if (!toast) return;
+        
         toast.textContent = message;
-        toast.className = `toast toast-${type}`;
+        toast.className = `toast ${type}`;
         toast.classList.remove('hidden');
         
         setTimeout(() => {
@@ -85,13 +66,11 @@ const Utils = {
         }, CONFIG.UI.TOAST_DURATION);
     },
     
-    // Generate unique ID
-    generateId: () => {
-        return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    formatTime(timestamp) {
+        return new Date(timestamp).toLocaleTimeString('vi-VN');
     },
     
-    // Debounce function
-    debounce: (func, wait) => {
+    debounce(func, wait) {
         let timeout;
         return function executedFunction(...args) {
             const later = () => {
