@@ -3,8 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Điều khiển ESP32-S3</title>
+    <title>Điều khiển ESP32-S3 - Bảo mật</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -13,9 +19,8 @@
             justify-content: center;
             align-items: center;
             padding: 20px;
-            margin: 0;
         }
-        
+
         .container {
             background: white;
             border-radius: 20px;
@@ -24,14 +29,111 @@
             max-width: 500px;
             width: 100%;
         }
-        
-        h1 {
+
+        /* Login Form */
+        .login-form {
+            text-align: center;
+        }
+
+        .login-form h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .login-form h2 i {
+            color: #4CAF50;
+            margin-right: 10px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .input-group input.error {
+            border-color: #f44336;
+            background-color: #ffebee;
+        }
+
+        .device-info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #1976D2;
+            text-align: left;
+        }
+
+        .device-info p {
+            margin: 5px 0;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .device-info strong {
+            color: #1976D2;
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        .btn-login:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Control Panel (ẩn khi chưa đăng nhập) */
+        .control-panel {
+            display: none;
+        }
+
+        .control-panel h1 {
             color: #333;
             text-align: center;
             margin-bottom: 20px;
             font-size: 24px;
         }
-        
+
         .info-box {
             background: #e3f2fd;
             padding: 15px;
@@ -41,12 +143,12 @@
             font-family: monospace;
             font-size: 14px;
         }
-        
+
         .info-box p {
             margin: 8px 0;
             word-break: break-all;
         }
-        
+
         .status-box {
             background: #f5f5f5;
             padding: 20px;
@@ -54,7 +156,7 @@
             text-align: center;
             margin-bottom: 20px;
         }
-        
+
         .led {
             width: 60px;
             height: 60px;
@@ -62,34 +164,34 @@
             margin: 10px auto;
             transition: all 0.3s;
         }
-        
+
         .led-on {
             background: #4CAF50;
             box-shadow: 0 0 30px #4CAF50;
             animation: pulse 1.5s infinite;
         }
-        
+
         .led-off {
             background: #f44336;
             box-shadow: 0 0 30px #f44336;
         }
-        
+
         .led-unknown {
             background: #9e9e9e;
         }
-        
+
         @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.7; }
             100% { opacity: 1; }
         }
-        
+
         .btn-group {
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
         }
-        
+
         button {
             flex: 1;
             padding: 15px;
@@ -101,25 +203,25 @@
             cursor: pointer;
             transition: all 0.3s;
         }
-        
+
         .btn-on {
             background: #4CAF50;
         }
-        
+
         .btn-off {
             background: #f44336;
         }
-        
+
         button:hover:not(:disabled) {
             transform: translateY(-3px);
             box-shadow: 0 10px 20px rgba(0,0,0,0.2);
         }
-        
+
         button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
-        
+
         .connection-status {
             padding: 10px;
             border-radius: 5px;
@@ -127,22 +229,22 @@
             font-weight: bold;
             margin: 10px 0;
         }
-        
+
         .connected {
             background: #d4edda;
             color: #155724;
         }
-        
+
         .disconnected {
             background: #f8d7da;
             color: #721c24;
         }
-        
+
         .connecting {
             background: #fff3cd;
             color: #856404;
         }
-        
+
         .debug {
             background: #1e1e1e;
             color: #00ff00;
@@ -154,7 +256,7 @@
             overflow-y: auto;
             margin-top: 20px;
         }
-        
+
         .warning {
             background: #ff9800;
             color: white;
@@ -164,53 +266,131 @@
             margin: 10px 0;
             font-weight: bold;
         }
+
+        .btn-logout {
+            width: 100%;
+            padding: 10px;
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+
+        .btn-logout:hover {
+            background: #d32f2f;
+        }
+
+        .error-message {
+            color: #f44336;
+            font-size: 14px;
+            margin-top: 5px;
+            text-align: left;
+        }
+
+        .remember-me {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+        }
+
+        .remember-me input {
+            margin-right: 8px;
+            width: auto;
+        }
     </style>
     
-    <!-- Sử dụng MQTT.js thay vì Paho -->
+    <!-- MQTT.js -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body>
     <div class="container">
-        <h1>🚀 ĐIỀU KHIỂN ESP32-S3</h1>
-        
-        <div class="warning" id="browserWarning" style="display: none;">
-            ⚠️ Trình duyệt của bạn cần hỗ trợ WebSocket
+        <!-- Login Form -->
+        <div id="loginForm" class="login-form">
+            <h2>
+                <i>🔐</i> XÁC THỰC THIẾT BỊ
+            </h2>
+            
+            <div class="device-info">
+                <p><strong>📱 Hướng dẫn:</strong></p>
+                <p>• Nhập đúng Device ID và Password</p>
+                <p>• Thông tin này có trong code ESP32</p>
+                <p>• Liên hệ quản trị viên để được cấp</p>
+            </div>
+            
+            <div class="input-group">
+                <label>🆔 DEVICE ID:</label>
+                <input type="text" id="deviceId" placeholder="Nhập Device ID (VD: ESP32S3-001)" value="ESP32S3-001">
+            </div>
+            
+            <div class="input-group">
+                <label>🔑 PASSWORD:</label>
+                <input type="password" id="password" placeholder="Nhập mật khẩu" value="123456">
+            </div>
+            
+            <div class="remember-me">
+                <input type="checkbox" id="rememberDevice">
+                <label for="rememberDevice">Ghi nhớ đăng nhập (24h)</label>
+            </div>
+            
+            <div id="loginError" class="error-message" style="display: none;"></div>
+            
+            <button id="loginBtn" class="btn-login" onclick="handleLogin()">
+                <span>🔓 ĐĂNG NHẬP</span>
+            </button>
+            
+            <div style="margin-top: 20px; padding: 10px; background: #fff3cd; border-radius: 5px; text-align: left;">
+                <p style="color: #856404; margin: 0; font-size: 13px;">
+                    <strong>📝 Thông tin mẫu:</strong><br>
+                    Device ID: ESP32S3-001<br>
+                    Password: 123456
+                </p>
+            </div>
         </div>
-        
-        <div class="info-box">
-            <p><strong>🔗 URL:</strong> f70a09e2678a4ee9bd009145291314c2.s1.eu.hivemq.cloud</p>
-            <p><strong>👤 User:</strong> esp32_supermini_control</p>
-            <p><strong>🔐 Pass:</strong> Esp32@Control2024!</p>
-            <p><strong>📡 Port:</strong> 8884 (WebSocket TLS)</p>
-        </div>
-        
-        <div class="status-box">
-            <h3>TRẠNG THÁI LED</h3>
-            <div id="led" class="led led-unknown"></div>
-            <p id="statusText" style="font-size: 20px; font-weight: bold;">Chưa kết nối</p>
-            <p id="lastUpdate"></p>
-        </div>
-        
-        <div class="btn-group">
-            <button id="btnOn" class="btn-on" onclick="sendCommand('ON')" disabled>🔴 BẬT</button>
-            <button id="btnOff" class="btn-off" onclick="sendCommand('OFF')" disabled>⚫ TẮT</button>
-        </div>
-        
-        <div id="connectionStatus" class="connection-status connecting">
-            ⚡ Đang kết nối HiveMQ Cloud...
-        </div>
-        
-        <button onclick="forceReconnect()" style="width:100%; padding:10px; margin:10px 0; background:#2196F3; color:white; border:none; border-radius:5px; cursor:pointer;">
-            🔄 KẾT NỐI LẠI
-        </button>
-        
-        <div class="debug" id="debug">
-            <p>🚀 Đang khởi tạo...</p>
+
+        <!-- Control Panel (ẩn khi chưa đăng nhập) -->
+        <div id="controlPanel" class="control-panel">
+            <h1>🚀 ĐIỀU KHIỂN ESP32-S3</h1>
+            
+            <div class="info-box">
+                <p><strong>🆔 Device ID:</strong> <span id="currentDeviceId"></span></p>
+                <p><strong>🔗 URL:</strong> f70a09e2678a4ee9bd009145291314c2.s1.eu.hivemq.cloud</p>
+                <p><strong>📡 Port:</strong> 8884 (WebSocket TLS)</p>
+            </div>
+            
+            <div class="status-box">
+                <h3>TRẠNG THÁI LED</h3>
+                <div id="led" class="led led-unknown"></div>
+                <p id="statusText" style="font-size: 20px; font-weight: bold;">Chưa kết nối</p>
+                <p id="lastUpdate"></p>
+            </div>
+            
+            <div class="btn-group">
+                <button id="btnOn" class="btn-on" onclick="sendCommand('ON')" disabled>🔴 BẬT</button>
+                <button id="btnOff" class="btn-off" onclick="sendCommand('OFF')" disabled>⚫ TẮT</button>
+            </div>
+            
+            <div id="connectionStatus" class="connection-status connecting">
+                ⚡ Đang kết nối HiveMQ Cloud...
+            </div>
+            
+            <button onclick="forceReconnect()" style="width:100%; padding:10px; margin:10px 0; background:#2196F3; color:white; border:none; border-radius:5px; cursor:pointer;">
+                🔄 KẾT NỐI LẠI
+            </button>
+            
+            <button class="btn-logout" onclick="logout()">
+                🚪 ĐĂNG XUẤT
+            </button>
+            
+            <div class="debug" id="debug">
+                <p>🚀 Đang khởi tạo...</p>
+            </div>
         </div>
     </div>
 
     <script>
-        // Cấu hình
+        // Cấu hình MQTT
         const CONFIG = {
             url: "wss://f70a09e2678a4ee9bd009145291314c2.s1.eu.hivemq.cloud:8884/mqtt",
             username: "esp32_supermini_control",
@@ -219,7 +399,33 @@
 
         let client = null;
         let isConnected = false;
+        let isAuthenticated = false;
         let reconnectTimeout = null;
+        let currentDeviceId = '';
+
+        // Kiểm tra remember me
+        function checkRememberedLogin() {
+            const savedDeviceId = localStorage.getItem('rememberedDeviceId');
+            const savedExpiry = localStorage.getItem('loginExpiry');
+            
+            if (savedDeviceId && savedExpiry) {
+                const now = new Date().getTime();
+                if (now < parseInt(savedExpiry)) {
+                    document.getElementById('deviceId').value = savedDeviceId;
+                    document.getElementById('password').value = '********';
+                    document.getElementById('rememberDevice').checked = true;
+                    
+                    // Tự động đăng nhập
+                    setTimeout(() => {
+                        handleLogin();
+                    }, 500);
+                } else {
+                    // Xóa nếu hết hạn
+                    localStorage.removeItem('rememberedDeviceId');
+                    localStorage.removeItem('loginExpiry');
+                }
+            }
+        }
 
         function debug(msg, isError = false) {
             const debugDiv = document.getElementById('debug');
@@ -232,6 +438,174 @@
                 debugDiv.removeChild(debugDiv.firstChild);
             }
             console.log(msg);
+        }
+
+        function showLoginError(message) {
+            const errorDiv = document.getElementById('loginError');
+            errorDiv.style.display = 'block';
+            errorDiv.textContent = message;
+            
+            // Highlight input lỗi
+            document.getElementById('deviceId').classList.add('error');
+            document.getElementById('password').classList.add('error');
+        }
+
+        function hideLoginError() {
+            document.getElementById('loginError').style.display = 'none';
+            document.getElementById('deviceId').classList.remove('error');
+            document.getElementById('password').classList.remove('error');
+        }
+
+        function handleLogin() {
+            const deviceId = document.getElementById('deviceId').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const remember = document.getElementById('rememberDevice').checked;
+            
+            hideLoginError();
+            
+            if (!deviceId || !password) {
+                showLoginError('❌ Vui lòng nhập đầy đủ Device ID và Password!');
+                return;
+            }
+            
+            // Disable nút đăng nhập
+            document.getElementById('loginBtn').disabled = true;
+            document.getElementById('loginBtn').innerHTML = '⏳ ĐANG XÁC THỰC...';
+            
+            // Lưu Device ID hiện tại
+            currentDeviceId = deviceId;
+            
+            // Nếu remember được chọn, lưu vào localStorage (24h)
+            if (remember) {
+                const expiry = new Date().getTime() + (24 * 60 * 60 * 1000); // 24 giờ
+                localStorage.setItem('rememberedDeviceId', deviceId);
+                localStorage.setItem('loginExpiry', expiry.toString());
+            }
+            
+            // Kết nối MQTT và gửi xác thực
+            connectMQTTWithAuth(deviceId, password);
+        }
+
+        function connectMQTTWithAuth(deviceId, password) {
+            debug(`🔄 Đang kết nối đến HiveMQ Cloud...`);
+
+            try {
+                if (typeof mqtt === 'undefined') {
+                    debug("❌ Lỗi: Thư viện MQTT chưa được load!", true);
+                    return;
+                }
+
+                const options = {
+                    clientId: 'web_' + Math.random().toString(36).substring(2, 10),
+                    username: CONFIG.username,
+                    password: CONFIG.password,
+                    clean: true,
+                    connectTimeout: 30000,
+                    reconnectPeriod: 5000,
+                    keepalive: 60
+                };
+
+                client = mqtt.connect(CONFIG.url, options);
+
+                client.on('connect', () => {
+                    isConnected = true;
+                    debug('✅ Kết nối MQTT thành công!');
+                    
+                    // Subscribe để nhận trạng thái
+                    client.subscribe('esp32/status', (err) => {
+                        if (!err) {
+                            debug('📥 Đã subscribe esp32/status');
+                            
+                            // Gửi thông tin xác thực
+                            const authMsg = `AUTH:${deviceId},${password}`;
+                            debug(`📤 Gửi xác thực: ${authMsg}`);
+                            
+                            client.publish('esp32/control', authMsg, { qos: 1 }, (err) => {
+                                if (err) {
+                                    debug(`❌ Lỗi gửi xác thực: ${err}`, true);
+                                }
+                            });
+                            
+                            // Set timeout chờ xác thực
+                            setTimeout(() => {
+                                if (!isAuthenticated) {
+                                    debug('❌ Hết thời gian chờ xác thực!', true);
+                                    showLoginError('❌ Xác thực thất bại! Kiểm tra lại thông tin.');
+                                    document.getElementById('loginBtn').disabled = false;
+                                    document.getElementById('loginBtn').innerHTML = '🔓 ĐĂNG NHẬP';
+                                    if (client) {
+                                        client.end();
+                                    }
+                                }
+                            }, 5000);
+                        }
+                    });
+                });
+
+                client.on('message', (topic, message) => {
+                    const payload = message.toString();
+                    debug(`📩 Nhận: ${payload} từ ${topic}`);
+                    
+                    // Xử lý kết quả xác thực
+                    if (payload === 'AUTH_SUCCESS') {
+                        isAuthenticated = true;
+                        debug('✅ XÁC THỰC THÀNH CÔNG!');
+                        
+                        // Ẩn form login, hiện control panel
+                        document.getElementById('loginForm').style.display = 'none';
+                        document.getElementById('controlPanel').style.display = 'block';
+                        document.getElementById('currentDeviceId').textContent = currentDeviceId;
+                        
+                        updateConnectionStatus(true);
+                        
+                        // Hỏi trạng thái LED
+                        setTimeout(() => {
+                            sendCommand('STATUS');
+                        }, 1000);
+                        
+                    } else if (payload === 'AUTH_FAILED') {
+                        isAuthenticated = false;
+                        debug('❌ XÁC THỰC THẤT BẠI!', true);
+                        showLoginError('❌ Sai Device ID hoặc Password!');
+                        document.getElementById('loginBtn').disabled = false;
+                        document.getElementById('loginBtn').innerHTML = '🔓 ĐĂNG NHẬP';
+                        if (client) {
+                            client.end();
+                        }
+                    }
+                    
+                    // Xử lý trạng thái LED
+                    if (payload === 'ON' || payload === 'ONLINE' || payload === 'ONLINE:ESP32S3-001') {
+                        updateLED('ON');
+                    } else if (payload === 'OFF') {
+                        updateLED('OFF');
+                    }
+                });
+
+                client.on('error', (err) => {
+                    isConnected = false;
+                    debug(`❌ Lỗi: ${err.message}`, true);
+                    document.getElementById('loginBtn').disabled = false;
+                    document.getElementById('loginBtn').innerHTML = '🔓 ĐĂNG NHẬP';
+                    showLoginError('❌ Lỗi kết nối MQTT!');
+                });
+
+                client.on('close', () => {
+                    isConnected = false;
+                    debug('🔌 Đã đóng kết nối');
+                });
+
+                client.on('offline', () => {
+                    isConnected = false;
+                    debug('📴 Mất kết nối');
+                });
+
+            } catch (error) {
+                debug(`❌ Lỗi: ${error.message}`, true);
+                document.getElementById('loginBtn').disabled = false;
+                document.getElementById('loginBtn').innerHTML = '🔓 ĐĂNG NHẬP';
+                showLoginError('❌ Lỗi hệ thống!');
+            }
         }
 
         function updateConnectionStatus(connected) {
@@ -263,99 +637,13 @@
             update.innerHTML = `🕐 Cập nhật: ${new Date().toLocaleTimeString()}`;
         }
 
-        function connectMQTT() {
-            if (reconnectTimeout) {
-                clearTimeout(reconnectTimeout);
-            }
-
-            debug(`🔄 Đang kết nối đến ${CONFIG.url}...`);
-
-            try {
-                // Kiểm tra MQTT.js đã load chưa
-                if (typeof mqtt === 'undefined') {
-                    debug("❌ Lỗi: Thư viện MQTT chưa được load!", true);
-                    document.getElementById('browserWarning').style.display = 'block';
-                    return;
-                }
-
-                // Options kết nối
-                const options = {
-                    clientId: 'web_' + Math.random().toString(36).substring(2, 10),
-                    username: CONFIG.username,
-                    password: CONFIG.password,
-                    clean: true,
-                    connectTimeout: 30000,
-                    reconnectPeriod: 5000,
-                    keepalive: 60
-                };
-
-                client = mqtt.connect(CONFIG.url, options);
-
-                client.on('connect', () => {
-                    isConnected = true;
-                    debug('✅ KẾT NỐI THÀNH CÔNG!');
-                    
-                    // Subscribe
-                    client.subscribe('esp32/status', (err) => {
-                        if (!err) {
-                            debug('📥 Đã subscribe esp32/status');
-                        } else {
-                            debug('❌ Lỗi subscribe: ' + err, true);
-                        }
-                    });
-                    
-                    updateConnectionStatus(true);
-                    
-                    // Gửi STATUS để hỏi trạng thái
-                    setTimeout(() => {
-                        sendCommand('STATUS');
-                    }, 2000);
-                });
-
-                client.on('message', (topic, message) => {
-                    const payload = message.toString();
-                    debug(`📩 Nhận: ${payload} từ ${topic}`);
-                    
-                    if (payload === 'ON' || payload === 'ONLINE') {
-                        updateLED('ON');
-                    } else if (payload === 'OFF') {
-                        updateLED('OFF');
-                    }
-                });
-
-                client.on('error', (err) => {
-                    isConnected = false;
-                    debug(`❌ Lỗi: ${err.message}`, true);
-                    updateConnectionStatus(false);
-                });
-
-                client.on('close', () => {
-                    isConnected = false;
-                    debug('🔌 Đã đóng kết nối');
-                    updateConnectionStatus(false);
-                });
-
-                client.on('offline', () => {
-                    isConnected = false;
-                    debug('📴 Mất kết nối');
-                    updateConnectionStatus(false);
-                });
-
-            } catch (error) {
-                debug(`❌ Lỗi: ${error.message}`, true);
-                updateConnectionStatus(false);
-                
-                reconnectTimeout = setTimeout(connectMQTT, 5000);
-            }
-        }
-
         function sendCommand(cmd) {
-            if (!client || !isConnected) {
-                debug('❌ Chưa kết nối!', true);
+            if (!client || !isConnected || !isAuthenticated) {
+                debug('❌ Chưa kết nối hoặc chưa xác thực!', true);
                 return;
             }
 
-            debug(`📤 Gửi: ${cmd}`);
+            debug(`📤 Gửi lệnh: ${cmd}`);
             
             client.publish('esp32/control', cmd, { qos: 1 }, (err) => {
                 if (err) {
@@ -376,20 +664,51 @@
             if (client) {
                 client.end(true);
             }
-            setTimeout(connectMQTT, 1000);
+            
+            // Thử xác thực lại với thông tin đã nhập
+            const deviceId = document.getElementById('deviceId').value.trim();
+            const password = document.getElementById('password').value.trim();
+            
+            if (deviceId && password) {
+                setTimeout(() => {
+                    connectMQTTWithAuth(deviceId, password);
+                }, 1000);
+            }
         }
 
-        // Kiểm tra WebSocket support
-        if (!window.WebSocket) {
-            document.getElementById('browserWarning').style.display = 'block';
-            debug('❌ Trình duyệt không hỗ trợ WebSocket!', true);
+        function logout() {
+            // Xóa trạng thái đăng nhập
+            isAuthenticated = false;
+            
+            // Ngắt kết nối MQTT
+            if (client) {
+                client.end(true);
+            }
+            
+            // Ẩn control panel, hiện login form
+            document.getElementById('controlPanel').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'block';
+            
+            // Clear password
+            document.getElementById('password').value = '';
+            
+            // Enable login button
+            document.getElementById('loginBtn').disabled = false;
+            document.getElementById('loginBtn').innerHTML = '🔓 ĐĂNG NHẬP';
+            
+            // Clear remember me nếu muốn
+            if (!document.getElementById('rememberDevice').checked) {
+                localStorage.removeItem('rememberedDeviceId');
+                localStorage.removeItem('loginExpiry');
+            }
+            
+            debug('👋 Đã đăng xuất');
         }
 
-        // Bắt đầu kết nối
+        // Khởi tạo
         window.onload = () => {
             debug('🚀 Trang web đã tải');
-            debug(`👤 Username: ${CONFIG.username}`);
-            connectMQTT();
+            checkRememberedLogin();
         };
 
         // Cleanup
