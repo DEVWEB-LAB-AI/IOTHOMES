@@ -28,7 +28,6 @@
             color: #333;
             text-align: center;
             margin-bottom: 20px;
-            font-size: 24px;
         }
         
         .info-box {
@@ -40,10 +39,9 @@
         }
         
         .info-box p {
-            margin: 8px 0;
-            color: #0d47a1;
+            margin: 5px 0;
             font-family: monospace;
-            word-break: break-all;
+            font-size: 14px;
         }
         
         .status-box {
@@ -145,22 +143,29 @@
         .debug {
             background: #1e1e1e;
             color: #00ff00;
-            padding: 10px;
+            padding: 15px;
             border-radius: 5px;
             font-family: monospace;
             font-size: 12px;
-            max-height: 150px;
+            max-height: 200px;
             overflow-y: auto;
             margin-top: 20px;
         }
         
-        .success-badge {
-            background: #4CAF50;
+        .test-btn {
+            background: #ff9800;
             color: white;
-            padding: 3px 8px;
+            border: none;
+            padding: 10px;
             border-radius: 5px;
-            font-size: 12px;
-            margin-left: 5px;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        
+        .test-btn:hover {
+            background: #f57c00;
         }
     </style>
     
@@ -168,15 +173,17 @@
 </head>
 <body>
     <div class="container">
-        <h1>🚀 ĐIỀU KHIỂN ESP32-S3 <span class="success-badge">HiveMQ</span></h1>
+        <h1>🚀 ĐIỀU KHIỂN ESP32-S3</h1>
         
         <div class="info-box">
-            <p><strong>🔗 Cluster URL:</strong> f70a09e2678a4ee9bd009145291314c2.s1.eu.hivemq.cloud</p>
-            <p><strong>👤 Username:</strong> esp32_supermini_control ✅</p>
-            <p><strong>🔐 Password:</strong> Esp32@Control2024!</p>
-            <p><strong>📡 Port:</strong> 8884 (WebSocket TLS)</p>
-            <p><strong>📋 Topics:</strong> esp32/control, esp32/status</p>
+            <p><strong>🔗 URL:</strong> f70a09e2678a4ee9bd009145291314c2.s1.eu.hivemq.cloud</p>
+            <p><strong>👤 User:</strong> esp32_supermini_control</p>
+            <p><strong>🔐 Pass:</strong> Esp32@Control2024!</p>
+            <p><strong>📡 Port:</strong> 8884 (WebSocket)</p>
         </div>
+        
+        <!-- Nút test kết nối -->
+        <button class="test-btn" onclick="testConnection()">🔍 KIỂM TRA KẾT NỐI</button>
         
         <div class="status-box">
             <h3>TRẠNG THÁI LED</h3>
@@ -200,87 +207,153 @@
     </div>
 
     <script>
-        // THÔNG TIN ĐĂNG NHẬP ĐÃ SỬA
         const CONFIG = {
             url: "f70a09e2678a4ee9bd009145291314c2.s1.eu.hivemq.cloud",
             port: 8884,
-            username: "esp32_supermini_control",  // Username mới hợp lệ
+            username: "esp32_supermini_control",
             password: "Esp32@Control2024!"
         };
         
         let client;
         let isConnected = false;
+        let reconnectTimer = null;
         
-        function debug(msg) {
+        function debug(msg, isError = false) {
             const debugDiv = document.getElementById('debug');
             const p = document.createElement('p');
-            p.textContent = `🕒 ${new Date().toLocaleTimeString()} - ${msg}`;
+            const prefix = isError ? '❌' : '🕒';
+            p.textContent = `${prefix} ${new Date().toLocaleTimeString()} - ${msg}`;
+            p.style.color = isError ? '#ff6b6b' : '#00ff00';
             debugDiv.appendChild(p);
-            while (debugDiv.children.length > 6) {
+            while (debugDiv.children.length > 8) {
                 debugDiv.removeChild(debugDiv.firstChild);
             }
+            debugDiv.scrollTop = debugDiv.scrollHeight;
+            console.log(msg);
+        }
+        
+        function testConnection() {
+            debug("🔍 Đang kiểm tra kết nối đến HiveMQ...");
+            
+            // Kiểm tra xem trình duyệt có online không
+            if (!navigator.onLine) {
+                debug("⚠️ Trình duyệt đang offline!", true);
+                return;
+            }
+            
+            debug("🌐 Trình duyệt online");
+            debug("🔄 Đang thử kết nối lại...");
+            
+            if (client && isConnected) {
+                client.disconnect();
+            }
+            
+            setTimeout(() => {
+                connectMQTT();
+            }, 1000);
         }
         
         function connectMQTT() {
-            debug(`🔄 Đang kết nối đến ${CONFIG.url}...`);
-            debug(`👤 Username: ${CONFIG.username}`);
+            if (reconnectTimer) {
+                clearTimeout(reconnectTimer);
+                reconnectTimer = null;
+            }
             
-            client = new Paho.MQTT.Client(
-                CONFIG.url,
-                CONFIG.port,
-                "web_" + Math.random().toString(36).substring(2, 10)
-            );
+            debug(`🔄 Đang kết nối đến ${CONFIG.url}:${CONFIG.port}...`);
             
-            client.onConnectionLost = (response) => {
-                isConnected = false;
-                debug(`❌ Mất kết nối: ${response.errorMessage}`);
-                updateConnectionStatus(false);
-            };
-            
-            client.onMessageArrived = (message) => {
-                const payload = message.payloadString;
-                debug(`📩 Nhận: ${payload}`);
+            try {
+                client = new Paho.MQTT.Client(
+                    CONFIG.url,
+                    CONFIG.port,
+                    "web_" + Math.random().toString(36).substring(2, 10)
+                );
                 
-                if (payload === "ON" || payload === "ONLINE") {
-                    updateLED("ON");
-                } else if (payload === "OFF") {
-                    updateLED("OFF");
-                }
-            };
-            
-            client.connect({
-                onSuccess: () => {
-                    isConnected = true;
-                    debug("✅ Kết nối HiveMQ Cloud thành công!");
-                    
-                    client.subscribe("esp32/status");
-                    debug("📥 Đã subscribe esp32/status");
-                    
-                    updateConnectionStatus(true);
-                    
-                    setTimeout(() => {
-                        sendCommand("STATUS");
-                    }, 1000);
-                },
-                onFailure: (err) => {
+                client.onConnectionLost = (response) => {
                     isConnected = false;
-                    debug(`❌ Lỗi: ${err.errorMessage}`);
-                    debug("💡 Kiểm tra:");
-                    debug("   - Username: " + CONFIG.username);
-                    debug("   - Password: " + CONFIG.password);
-                    debug("   - URL: " + CONFIG.url);
+                    debug(`🔌 Mất kết nối: ${response.errorMessage}`, true);
                     updateConnectionStatus(false);
                     
-                    // Thử lại sau 5 giây
-                    setTimeout(connectMQTT, 5000);
-                },
-                userName: CONFIG.username,
-                password: CONFIG.password,
-                useSSL: true,
-                keepAliveInterval: 30,
-                cleanSession: true,
-                reconnect: true
-            });
+                    // Tự động kết nối lại sau 5 giây
+                    reconnectTimer = setTimeout(() => {
+                        debug("🔄 Đang thử kết nối lại...");
+                        connectMQTT();
+                    }, 5000);
+                };
+                
+                client.onMessageArrived = (message) => {
+                    const payload = message.payloadString;
+                    debug(`📩 Nhận: ${payload} từ ${message.destinationName}`);
+                    
+                    if (payload === "ON" || payload === "ONLINE") {
+                        updateLED("ON");
+                    } else if (payload === "OFF") {
+                        updateLED("OFF");
+                    }
+                };
+                
+                const connectOptions = {
+                    onSuccess: () => {
+                        isConnected = true;
+                        debug("✅ KẾT NỐI THÀNH CÔNG!");
+                        debug("📥 Đang subscribe esp32/status...");
+                        
+                        client.subscribe("esp32/status", {
+                            onSuccess: () => {
+                                debug("✅ Subscribed esp32/status");
+                            },
+                            onFailure: (err) => {
+                                debug(`❌ Lỗi subscribe: ${err.errorMessage}`, true);
+                            }
+                        });
+                        
+                        updateConnectionStatus(true);
+                        
+                        // Gửi yêu cầu lấy trạng thái
+                        setTimeout(() => {
+                            sendCommand("STATUS");
+                        }, 2000);
+                        
+                        // Gửi STATUS mỗi 10 giây để kiểm tra
+                        setInterval(() => {
+                            if (isConnected) {
+                                sendCommand("STATUS");
+                            }
+                        }, 10000);
+                    },
+                    onFailure: (err) => {
+                        isConnected = false;
+                        debug(`❌ LỖI KẾT NỐI: ${err.errorMessage}`, true);
+                        debug("📋 KIỂM TRA:");
+                        debug("   1. Username: " + CONFIG.username);
+                        debug("   2. Password: " + CONFIG.password);
+                        debug("   3. URL: " + CONFIG.url);
+                        debug("   4. Port: " + CONFIG.port);
+                        updateConnectionStatus(false);
+                        
+                        // Thử lại sau 5 giây
+                        reconnectTimer = setTimeout(() => {
+                            debug("🔄 Đang thử kết nối lại...");
+                            connectMQTT();
+                        }, 5000);
+                    },
+                    userName: CONFIG.username,
+                    password: CONFIG.password,
+                    useSSL: true,
+                    keepAliveInterval: 30,
+                    cleanSession: true,
+                    timeout: 30
+                };
+                
+                client.connect(connectOptions);
+                
+            } catch (error) {
+                debug(`❌ Lỗi: ${error.message}`, true);
+                updateConnectionStatus(false);
+                
+                reconnectTimer = setTimeout(() => {
+                    connectMQTT();
+                }, 5000);
+            }
         }
         
         function updateLED(state) {
@@ -289,7 +362,7 @@
             const update = document.getElementById('lastUpdate');
             
             led.className = 'led ' + (state === 'ON' ? 'led-on' : 'led-off');
-            text.innerHTML = state === 'ON' ? 'ĐANG BẬT' : 'ĐANG TẮT';
+            text.innerHTML = state === 'ON' ? '🔴 ĐANG BẬT' : '⚫ ĐANG TẮT';
             text.style.color = state === 'ON' ? '#4CAF50' : '#f44336';
             update.innerHTML = `🕐 Cập nhật: ${new Date().toLocaleTimeString()}`;
         }
@@ -314,29 +387,44 @@
         
         function sendCommand(cmd) {
             if (!client || !isConnected) {
-                alert('❌ Chưa kết nối MQTT!');
+                debug("❌ Không thể gửi lệnh: Chưa kết nối!", true);
                 return;
             }
             
-            debug(`📤 Gửi lệnh: ${cmd}`);
+            debug(`📤 Gửi lệnh: ${cmd} đến esp32/control`);
             
             const message = new Paho.MQTT.Message(cmd);
             message.destinationName = "esp32/control";
             message.qos = 1;
             
-            client.send(message);
-            
-            // Hiệu ứng nhấn nút
-            const btn = document.getElementById(cmd === 'ON' ? 'btnOn' : 'btnOff');
-            btn.style.transform = 'scale(0.95)';
-            setTimeout(() => btn.style.transform = '', 200);
+            try {
+                client.send(message);
+                debug(`✅ Đã gửi ${cmd}`);
+                
+                // Hiệu ứng nhấn nút
+                const btn = document.getElementById(cmd === 'ON' ? 'btnOn' : 'btnOff');
+                btn.style.transform = 'scale(0.95)';
+                setTimeout(() => btn.style.transform = '', 200);
+            } catch (error) {
+                debug(`❌ Lỗi gửi lệnh: ${error.message}`, true);
+            }
         }
         
         // Bắt đầu kết nối khi load trang
         window.onload = () => {
             debug("🚀 Trang web đã tải");
-            debug("📝 Dùng username: " + CONFIG.username);
+            debug(`👤 Username: ${CONFIG.username}`);
             connectMQTT();
+        };
+        
+        // Dọn dẹp khi đóng trang
+        window.onbeforeunload = () => {
+            if (reconnectTimer) {
+                clearTimeout(reconnectTimer);
+            }
+            if (client && isConnected) {
+                client.disconnect();
+            }
         };
     </script>
 </body>
