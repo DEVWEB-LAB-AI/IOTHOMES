@@ -6,7 +6,7 @@
 const char* ssid = "MAI HIEP";
 const char* password = "15081983";
 
-// THÔNG TIN HIVEMQ CLOUD (ĐÃ ĐÚNG)
+// THÔNG TIN HIVEMQ CLOUD
 const char* mqtt_server = "f70a09e2678a4ee9bd009145291314c2.s1.eu.hivemq.cloud";
 const int mqtt_port = 8883;
 const char* mqtt_user = "esp32_supermini_control";
@@ -15,6 +15,10 @@ const char* mqtt_password = "Esp32@Control2024!";
 // Định nghĩa chân LED cho ESP32-S3 Supermini
 #define LED_OUTPUT_1 5
 #define LED_OUTPUT_2 6
+
+// MẬT KHẨU BẢO VỆ WEB VÀ ID THIẾT BỊ
+const char* WEB_PASSWORD = "123456";        // Mật khẩu để truy cập web
+const char* DEVICE_ID = "ESP32S3-001";      // ID thiết bị (có thể thay đổi)
 
 // Topics MQTT
 const char* topic_subscribe = "esp32/control";
@@ -52,6 +56,28 @@ void setup_wifi() {
   }
 }
 
+bool authenticateDevice(String deviceId, String password) {
+  // Xóa khoảng trắng và ký tự đặc biệt
+  deviceId.trim();
+  password.trim();
+  
+  // So sánh với thông tin đã lưu
+  bool deviceMatch = (deviceId == String(DEVICE_ID));
+  bool passwordMatch = (password == String(WEB_PASSWORD));
+  
+  Serial.print("🔐 Auth - Device ID: ");
+  Serial.print(deviceId);
+  Serial.print(" (match: ");
+  Serial.print(deviceMatch ? "✅" : "❌");
+  Serial.print("), Password: ");
+  Serial.print(password);
+  Serial.print(" (match: ");
+  Serial.print(passwordMatch ? "✅" : "❌");
+  Serial.println(")");
+  
+  return deviceMatch && passwordMatch;
+}
+
 void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("📩 Nhận [");
   Serial.print(topic);
@@ -63,6 +89,28 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
   Serial.println(message);
   
+  // Kiểm tra nếu là message xác thực
+  if (message.startsWith("AUTH:")) {
+    // Format: AUTH:DEVICE_ID,PASSWORD
+    String authData = message.substring(5); // Bỏ "AUTH:"
+    int commaIndex = authData.indexOf(',');
+    
+    if (commaIndex > 0) {
+      String deviceId = authData.substring(0, commaIndex);
+      String password = authData.substring(commaIndex + 1);
+      
+      if (authenticateDevice(deviceId, password)) {
+        client.publish(topic_publish, "AUTH_SUCCESS");
+        Serial.println("✅ Xác thực thành công!");
+      } else {
+        client.publish(topic_publish, "AUTH_FAILED");
+        Serial.println("❌ Xác thực thất bại!");
+      }
+    }
+    return;
+  }
+  
+  // Các lệnh điều khiển thông thường
   if (message == "ON") {
     relayState = true;
     digitalWrite(LED_OUTPUT_1, HIGH);
@@ -107,9 +155,10 @@ void reconnect() {
         Serial.println(topic_subscribe);
       }
       
-      // Gửi ONLINE để báo web biết ESP32 đã sẵn sàng
-      if (client.publish(topic_publish, "ONLINE")) {
-        Serial.println("📤 Đã gửi ONLINE");
+      // Gửi ONLINE kèm Device ID để báo web biết
+      String onlineMsg = "ONLINE:" + String(DEVICE_ID);
+      if (client.publish(topic_publish, onlineMsg.c_str())) {
+        Serial.println("📤 Đã gửi ONLINE kèm Device ID");
       }
       
       reconnectAttempts = 0;
@@ -161,6 +210,14 @@ void setup() {
   
   Serial.println("\n=================================");
   Serial.println("🚀 ESP32-S3 + HiveMQ Cloud");
+  Serial.println("=================================");
+  
+  // Hiển thị thông tin bảo mật
+  Serial.println("🔐 THÔNG TIN BẢO MẬT:");
+  Serial.print("   Device ID: ");
+  Serial.println(DEVICE_ID);
+  Serial.print("   Web Password: ");
+  Serial.println(WEB_PASSWORD);
   Serial.println("=================================");
   
   // Khởi tạo GPIO
