@@ -3,14 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Điều khiển ESP32-S3 Supermini</title>
+    <title>Điều khiển ESP32-S3</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -22,11 +16,11 @@
         }
         
         .container {
-            background-color: white;
+            background: white;
             border-radius: 20px;
             padding: 30px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            max-width: 600px;
+            max-width: 500px;
             width: 100%;
         }
         
@@ -34,87 +28,53 @@
             color: #333;
             text-align: center;
             margin-bottom: 20px;
-            font-size: 28px;
+            font-size: 24px;
         }
         
-        .device-info {
-            background: #f5f5f5;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-        
-        .device-info p {
-            margin: 10px 0;
-            color: #555;
-            font-size: 16px;
-        }
-        
-        .badge {
-            background: #4CAF50;
-            color: white;
-            padding: 3px 8px;
-            border-radius: 5px;
-            font-size: 12px;
-            margin-left: 10px;
-        }
-        
-        .mqtt-config {
+        .info-box {
             background: #e3f2fd;
-            border-radius: 10px;
             padding: 15px;
+            border-radius: 10px;
             margin-bottom: 20px;
-            border-left: 4px solid #2196F3;
+            border-left: 4px solid #1976D2;
         }
         
-        .mqtt-config p {
+        .info-box p {
             margin: 8px 0;
-            color: #01579b;
+            color: #0d47a1;
             font-family: monospace;
-            font-size: 15px;
+            word-break: break-all;
         }
         
         .status-box {
-            background: #f0f0f0;
-            border-radius: 10px;
+            background: #f5f5f5;
             padding: 20px;
-            margin-bottom: 20px;
+            border-radius: 10px;
             text-align: center;
+            margin-bottom: 20px;
         }
         
-        .status-display {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-            margin-top: 15px;
-        }
-        
-        #statusText {
-            font-size: 24px;
-            font-weight: bold;
-        }
-        
-        .status-led {
-            width: 25px;
-            height: 25px;
+        .led {
+            width: 60px;
+            height: 60px;
             border-radius: 50%;
-            transition: all 0.3s ease;
+            margin: 10px auto;
+            transition: all 0.3s;
         }
         
-        .status-led.on {
-            background-color: #4CAF50;
-            box-shadow: 0 0 20px #4CAF50;
+        .led-on {
+            background: #4CAF50;
+            box-shadow: 0 0 30px #4CAF50;
             animation: pulse 1.5s infinite;
         }
         
-        .status-led.off {
-            background-color: #f44336;
-            box-shadow: 0 0 20px #f44336;
+        .led-off {
+            background: #f44336;
+            box-shadow: 0 0 30px #f44336;
         }
         
-        .status-led.unknown {
-            background-color: #9e9e9e;
+        .led-unknown {
+            background: #9e9e9e;
         }
         
         @keyframes pulse {
@@ -123,95 +83,84 @@
             100% { opacity: 1; }
         }
         
-        .control-panel {
+        .btn-group {
             display: flex;
-            gap: 15px;
+            gap: 10px;
             margin-bottom: 20px;
         }
         
-        .btn {
+        button {
             flex: 1;
             padding: 15px;
             border: none;
             border-radius: 10px;
             font-size: 18px;
             font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
             color: white;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s;
         }
         
         .btn-on {
-            background: linear-gradient(135deg, #4CAF50, #2E7D32);
+            background: #4CAF50;
         }
         
         .btn-off {
-            background: linear-gradient(135deg, #f44336, #c62828);
+            background: #f44336;
         }
         
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
-        .btn:hover:not(:disabled) {
+        button:hover:not(:disabled) {
             transform: translateY(-3px);
             box-shadow: 0 10px 20px rgba(0,0,0,0.2);
         }
         
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
         .connection-status {
+            padding: 10px;
+            border-radius: 5px;
             text-align: center;
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 20px;
             font-weight: bold;
-            transition: all 0.3s ease;
+            margin: 10px 0;
         }
         
         .connected {
-            background-color: #d4edda;
+            background: #d4edda;
             color: #155724;
-            border: 2px solid #c3e6cb;
         }
         
         .disconnected {
-            background-color: #f8d7da;
+            background: #f8d7da;
             color: #721c24;
-            border: 2px solid #f5c6cb;
         }
         
         .connecting {
-            background-color: #fff3cd;
+            background: #fff3cd;
             color: #856404;
-            border: 2px solid #ffeeba;
         }
         
-        .footer {
-            text-align: center;
-            margin-top: 20px;
-            color: #888;
-            font-size: 14px;
-            padding-top: 15px;
-            border-top: 1px solid #eee;
-        }
-        
-        .debug-panel {
+        .debug {
             background: #1e1e1e;
             color: #00ff00;
             padding: 10px;
             border-radius: 5px;
             font-family: monospace;
             font-size: 12px;
-            margin-top: 15px;
-            max-height: 100px;
+            max-height: 150px;
             overflow-y: auto;
+            margin-top: 20px;
         }
         
-        .debug-panel p {
-            margin: 3px 0;
-            color: #8bc34a;
+        .success-badge {
+            background: #4CAF50;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 5px;
+            font-size: 12px;
+            margin-left: 5px;
         }
     </style>
     
@@ -219,160 +168,140 @@
 </head>
 <body>
     <div class="container">
-        <h1>🚀 ESP32-S3 SUPERNMINI</h1>
+        <h1>🚀 ĐIỀU KHIỂN ESP32-S3 <span class="success-badge">HiveMQ</span></h1>
         
-        <div class="device-info">
-            <p><i>📱</i> <strong>Thiết bị:</strong> ESP32-S3 Supermini <span class="badge">GPIO 5,6</span></p>
-            <p><i>💡</i> <strong>2 LED Output:</strong> GPIO 5 và GPIO 6</p>
-            <p><i>🌐</i> <strong>MQTT Broker:</strong> broker.hivemq.com:8000</p>
-        </div>
-        
-        <div class="mqtt-config">
-            <p><strong>📡 Cấu hình:</strong></p>
-            <p>📤 Gửi lệnh: <code>esp32/control</code> (ON/OFF/STATUS)</p>
-            <p>📥 Nhận trạng thái: <code>esp32/status</code> (ON/OFF/ONLINE/HEARTBEAT)</p>
+        <div class="info-box">
+            <p><strong>🔗 Cluster URL:</strong> f70a09e2678a4ee9bd009145291314c2.s1.eu.hivemq.cloud</p>
+            <p><strong>👤 Username:</strong> esp32_supermini_control ✅</p>
+            <p><strong>🔐 Password:</strong> Esp32@Control2024!</p>
+            <p><strong>📡 Port:</strong> 8884 (WebSocket TLS)</p>
+            <p><strong>📋 Topics:</strong> esp32/control, esp32/status</p>
         </div>
         
         <div class="status-box">
-            <h3>📊 TRẠNG THÁI LED</h3>
-            <div class="status-display">
-                <span id="statusText">Đang kết nối...</span>
-                <span id="statusLed" class="status-led unknown"></span>
-            </div>
-            <p id="lastUpdate" style="color: #666; margin-top: 10px;"></p>
+            <h3>TRẠNG THÁI LED</h3>
+            <div id="led" class="led led-unknown"></div>
+            <p id="statusText" style="font-size: 20px; font-weight: bold;">Chưa kết nối</p>
+            <p id="lastUpdate"></p>
         </div>
         
-        <div class="control-panel">
-            <button id="btnOn" class="btn btn-on" onclick="sendCommand('ON')">🔴 BẬT</button>
-            <button id="btnOff" class="btn btn-off" onclick="sendCommand('OFF')">⚫ TẮT</button>
+        <div class="btn-group">
+            <button id="btnOn" class="btn-on" onclick="sendCommand('ON')" disabled>🔴 BẬT</button>
+            <button id="btnOff" class="btn-off" onclick="sendCommand('OFF')" disabled>⚫ TẮT</button>
         </div>
         
         <div id="connectionStatus" class="connection-status connecting">
-            ⚡ Đang kết nối MQTT...
+            ⚡ Đang kết nối HiveMQ Cloud...
         </div>
         
-        <div class="debug-panel" id="debugPanel">
-            <p>🚀 Khởi tạo...</p>
-        </div>
-        
-        <div class="footer">
-            <p>© 2024 - Điều khiển ESP32-S3 Supermini qua MQTT</p>
-            <p>📱 Hoạt động trên 4G/WiFi toàn cầu</p>
+        <div class="debug" id="debug">
+            <p>🚀 Đang khởi tạo...</p>
         </div>
     </div>
 
     <script>
-        // Cấu hình MQTT
-        const mqttConfig = {
-            host: "broker.hivemq.com",
-            port: 8000,
-            clientId: "web_" + Math.random().toString(36).substring(2, 10)
+        // THÔNG TIN ĐĂNG NHẬP ĐÃ SỬA
+        const CONFIG = {
+            url: "f70a09e2678a4ee9bd009145291314c2.s1.eu.hivemq.cloud",
+            port: 8884,
+            username: "esp32_supermini_control",  // Username mới hợp lệ
+            password: "Esp32@Control2024!"
         };
-
-        const topics = {
-            publish: "esp32/control",
-            subscribe: "esp32/status"
-        };
-
+        
         let client;
         let isConnected = false;
         
-        function addDebugLog(msg) {
-            const panel = document.getElementById('debugPanel');
+        function debug(msg) {
+            const debugDiv = document.getElementById('debug');
             const p = document.createElement('p');
             p.textContent = `🕒 ${new Date().toLocaleTimeString()} - ${msg}`;
-            panel.appendChild(p);
-            while (panel.children.length > 5) {
-                panel.removeChild(panel.firstChild);
+            debugDiv.appendChild(p);
+            while (debugDiv.children.length > 6) {
+                debugDiv.removeChild(debugDiv.firstChild);
             }
-            panel.scrollTop = panel.scrollHeight;
         }
-
+        
         function connectMQTT() {
-            addDebugLog("Đang kết nối đến broker.hivemq.com:8000...");
+            debug(`🔄 Đang kết nối đến ${CONFIG.url}...`);
+            debug(`👤 Username: ${CONFIG.username}`);
             
             client = new Paho.MQTT.Client(
-                mqttConfig.host,
-                Number(mqttConfig.port),
-                mqttConfig.clientId
+                CONFIG.url,
+                CONFIG.port,
+                "web_" + Math.random().toString(36).substring(2, 10)
             );
             
             client.onConnectionLost = (response) => {
                 isConnected = false;
-                addDebugLog(`❌ Mất kết nối: ${response.errorMessage}`);
-                updateUI(false);
-                
-                // Thử kết nối lại sau 3 giây
-                setTimeout(connectMQTT, 3000);
+                debug(`❌ Mất kết nối: ${response.errorMessage}`);
+                updateConnectionStatus(false);
             };
             
             client.onMessageArrived = (message) => {
                 const payload = message.payloadString;
-                addDebugLog(`📩 Nhận: ${payload} từ ${message.destinationName}`);
+                debug(`📩 Nhận: ${payload}`);
                 
                 if (payload === "ON" || payload === "ONLINE") {
-                    updateStatus("ON");
+                    updateLED("ON");
                 } else if (payload === "OFF") {
-                    updateStatus("OFF");
-                } else if (payload === "HEARTBEAT") {
-                    addDebugLog("💓 ESP32 đang hoạt động");
+                    updateLED("OFF");
                 }
             };
             
             client.connect({
                 onSuccess: () => {
                     isConnected = true;
-                    addDebugLog("✅ Kết nối MQTT thành công!");
+                    debug("✅ Kết nối HiveMQ Cloud thành công!");
                     
-                    client.subscribe(topics.subscribe);
-                    addDebugLog(`📥 Đã subscribe: ${topics.subscribe}`);
+                    client.subscribe("esp32/status");
+                    debug("📥 Đã subscribe esp32/status");
                     
-                    updateUI(true);
+                    updateConnectionStatus(true);
                     
-                    // Hỏi trạng thái hiện tại
                     setTimeout(() => {
                         sendCommand("STATUS");
                     }, 1000);
                 },
                 onFailure: (err) => {
                     isConnected = false;
-                    addDebugLog(`❌ Lỗi: ${err.errorMessage}`);
-                    updateUI(false);
+                    debug(`❌ Lỗi: ${err.errorMessage}`);
+                    debug("💡 Kiểm tra:");
+                    debug("   - Username: " + CONFIG.username);
+                    debug("   - Password: " + CONFIG.password);
+                    debug("   - URL: " + CONFIG.url);
+                    updateConnectionStatus(false);
                     
-                    // Thử lại
+                    // Thử lại sau 5 giây
                     setTimeout(connectMQTT, 5000);
                 },
+                userName: CONFIG.username,
+                password: CONFIG.password,
+                useSSL: true,
                 keepAliveInterval: 30,
-                cleanSession: true
+                cleanSession: true,
+                reconnect: true
             });
         }
         
-        function updateStatus(state) {
-            const statusText = document.getElementById('statusText');
-            const statusLed = document.getElementById('statusLed');
-            const lastUpdate = document.getElementById('lastUpdate');
+        function updateLED(state) {
+            const led = document.getElementById('led');
+            const text = document.getElementById('statusText');
+            const update = document.getElementById('lastUpdate');
             
-            if (state === "ON") {
-                statusText.innerHTML = "ĐANG BẬT";
-                statusText.style.color = "#4CAF50";
-                statusLed.className = "status-led on";
-            } else {
-                statusText.innerHTML = "ĐANG TẮT";
-                statusText.style.color = "#f44336";
-                statusLed.className = "status-led off";
-            }
-            
-            lastUpdate.innerHTML = `🕐 Cập nhật: ${new Date().toLocaleTimeString()}`;
+            led.className = 'led ' + (state === 'ON' ? 'led-on' : 'led-off');
+            text.innerHTML = state === 'ON' ? 'ĐANG BẬT' : 'ĐANG TẮT';
+            text.style.color = state === 'ON' ? '#4CAF50' : '#f44336';
+            update.innerHTML = `🕐 Cập nhật: ${new Date().toLocaleTimeString()}`;
         }
         
-        function updateUI(connected) {
+        function updateConnectionStatus(connected) {
             const statusDiv = document.getElementById('connectionStatus');
             const btnOn = document.getElementById('btnOn');
             const btnOff = document.getElementById('btnOff');
             
             if (connected) {
                 statusDiv.className = 'connection-status connected';
-                statusDiv.innerHTML = '✅ Đã kết nối MQTT';
+                statusDiv.innerHTML = '✅ Đã kết nối HiveMQ Cloud';
                 btnOn.disabled = false;
                 btnOff.disabled = false;
             } else {
@@ -389,23 +318,24 @@
                 return;
             }
             
-            addDebugLog(`📤 Gửi: ${cmd}`);
+            debug(`📤 Gửi lệnh: ${cmd}`);
             
             const message = new Paho.MQTT.Message(cmd);
-            message.destinationName = topics.publish;
+            message.destinationName = "esp32/control";
             message.qos = 1;
             
             client.send(message);
             
-            // Visual feedback
+            // Hiệu ứng nhấn nút
             const btn = document.getElementById(cmd === 'ON' ? 'btnOn' : 'btnOff');
             btn.style.transform = 'scale(0.95)';
             setTimeout(() => btn.style.transform = '', 200);
         }
         
-        // Bắt đầu khi load trang
+        // Bắt đầu kết nối khi load trang
         window.onload = () => {
-            addDebugLog("🚀 Trang web đã tải");
+            debug("🚀 Trang web đã tải");
+            debug("📝 Dùng username: " + CONFIG.username);
             connectMQTT();
         };
     </script>
