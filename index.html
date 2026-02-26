@@ -13,6 +13,7 @@
             justify-content: center;
             align-items: center;
             padding: 20px;
+            margin: 0;
         }
         
         .container {
@@ -28,6 +29,7 @@
             color: #333;
             text-align: center;
             margin-bottom: 20px;
+            font-size: 24px;
         }
         
         .info-box {
@@ -36,12 +38,13 @@
             border-radius: 10px;
             margin-bottom: 20px;
             border-left: 4px solid #1976D2;
+            font-family: monospace;
+            font-size: 14px;
         }
         
         .info-box p {
-            margin: 5px 0;
-            font-family: monospace;
-            font-size: 14px;
+            margin: 8px 0;
+            word-break: break-all;
         }
         
         .status-box {
@@ -152,38 +155,34 @@
             margin-top: 20px;
         }
         
-        .test-btn {
+        .warning {
             background: #ff9800;
             color: white;
-            border: none;
             padding: 10px;
             border-radius: 5px;
-            cursor: pointer;
-            width: 100%;
+            text-align: center;
             margin: 10px 0;
             font-weight: bold;
         }
-        
-        .test-btn:hover {
-            background: #f57c00;
-        }
     </style>
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
+    <!-- Sử dụng MQTT.js thay vì Paho -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body>
     <div class="container">
         <h1>🚀 ĐIỀU KHIỂN ESP32-S3</h1>
         
+        <div class="warning" id="browserWarning" style="display: none;">
+            ⚠️ Trình duyệt của bạn cần hỗ trợ WebSocket
+        </div>
+        
         <div class="info-box">
             <p><strong>🔗 URL:</strong> f70a09e2678a4ee9bd009145291314c2.s1.eu.hivemq.cloud</p>
             <p><strong>👤 User:</strong> esp32_supermini_control</p>
             <p><strong>🔐 Pass:</strong> Esp32@Control2024!</p>
-            <p><strong>📡 Port:</strong> 8884 (WebSocket)</p>
+            <p><strong>📡 Port:</strong> 8884 (WebSocket TLS)</p>
         </div>
-        
-        <!-- Nút test kết nối -->
-        <button class="test-btn" onclick="testConnection()">🔍 KIỂM TRA KẾT NỐI</button>
         
         <div class="status-box">
             <h3>TRẠNG THÁI LED</h3>
@@ -201,172 +200,40 @@
             ⚡ Đang kết nối HiveMQ Cloud...
         </div>
         
+        <button onclick="forceReconnect()" style="width:100%; padding:10px; margin:10px 0; background:#2196F3; color:white; border:none; border-radius:5px; cursor:pointer;">
+            🔄 KẾT NỐI LẠI
+        </button>
+        
         <div class="debug" id="debug">
             <p>🚀 Đang khởi tạo...</p>
         </div>
     </div>
 
     <script>
+        // Cấu hình
         const CONFIG = {
-            url: "f70a09e2678a4ee9bd009145291314c2.s1.eu.hivemq.cloud",
-            port: 8884,
+            url: "wss://f70a09e2678a4ee9bd009145291314c2.s1.eu.hivemq.cloud:8884/mqtt",
             username: "esp32_supermini_control",
             password: "Esp32@Control2024!"
         };
-        
-        let client;
+
+        let client = null;
         let isConnected = false;
-        let reconnectTimer = null;
-        
+        let reconnectTimeout = null;
+
         function debug(msg, isError = false) {
             const debugDiv = document.getElementById('debug');
             const p = document.createElement('p');
-            const prefix = isError ? '❌' : '🕒';
+            const prefix = isError ? '❌' : '📌';
             p.textContent = `${prefix} ${new Date().toLocaleTimeString()} - ${msg}`;
             p.style.color = isError ? '#ff6b6b' : '#00ff00';
             debugDiv.appendChild(p);
             while (debugDiv.children.length > 8) {
                 debugDiv.removeChild(debugDiv.firstChild);
             }
-            debugDiv.scrollTop = debugDiv.scrollHeight;
             console.log(msg);
         }
-        
-        function testConnection() {
-            debug("🔍 Đang kiểm tra kết nối đến HiveMQ...");
-            
-            // Kiểm tra xem trình duyệt có online không
-            if (!navigator.onLine) {
-                debug("⚠️ Trình duyệt đang offline!", true);
-                return;
-            }
-            
-            debug("🌐 Trình duyệt online");
-            debug("🔄 Đang thử kết nối lại...");
-            
-            if (client && isConnected) {
-                client.disconnect();
-            }
-            
-            setTimeout(() => {
-                connectMQTT();
-            }, 1000);
-        }
-        
-        function connectMQTT() {
-            if (reconnectTimer) {
-                clearTimeout(reconnectTimer);
-                reconnectTimer = null;
-            }
-            
-            debug(`🔄 Đang kết nối đến ${CONFIG.url}:${CONFIG.port}...`);
-            
-            try {
-                client = new Paho.MQTT.Client(
-                    CONFIG.url,
-                    CONFIG.port,
-                    "web_" + Math.random().toString(36).substring(2, 10)
-                );
-                
-                client.onConnectionLost = (response) => {
-                    isConnected = false;
-                    debug(`🔌 Mất kết nối: ${response.errorMessage}`, true);
-                    updateConnectionStatus(false);
-                    
-                    // Tự động kết nối lại sau 5 giây
-                    reconnectTimer = setTimeout(() => {
-                        debug("🔄 Đang thử kết nối lại...");
-                        connectMQTT();
-                    }, 5000);
-                };
-                
-                client.onMessageArrived = (message) => {
-                    const payload = message.payloadString;
-                    debug(`📩 Nhận: ${payload} từ ${message.destinationName}`);
-                    
-                    if (payload === "ON" || payload === "ONLINE") {
-                        updateLED("ON");
-                    } else if (payload === "OFF") {
-                        updateLED("OFF");
-                    }
-                };
-                
-                const connectOptions = {
-                    onSuccess: () => {
-                        isConnected = true;
-                        debug("✅ KẾT NỐI THÀNH CÔNG!");
-                        debug("📥 Đang subscribe esp32/status...");
-                        
-                        client.subscribe("esp32/status", {
-                            onSuccess: () => {
-                                debug("✅ Subscribed esp32/status");
-                            },
-                            onFailure: (err) => {
-                                debug(`❌ Lỗi subscribe: ${err.errorMessage}`, true);
-                            }
-                        });
-                        
-                        updateConnectionStatus(true);
-                        
-                        // Gửi yêu cầu lấy trạng thái
-                        setTimeout(() => {
-                            sendCommand("STATUS");
-                        }, 2000);
-                        
-                        // Gửi STATUS mỗi 10 giây để kiểm tra
-                        setInterval(() => {
-                            if (isConnected) {
-                                sendCommand("STATUS");
-                            }
-                        }, 10000);
-                    },
-                    onFailure: (err) => {
-                        isConnected = false;
-                        debug(`❌ LỖI KẾT NỐI: ${err.errorMessage}`, true);
-                        debug("📋 KIỂM TRA:");
-                        debug("   1. Username: " + CONFIG.username);
-                        debug("   2. Password: " + CONFIG.password);
-                        debug("   3. URL: " + CONFIG.url);
-                        debug("   4. Port: " + CONFIG.port);
-                        updateConnectionStatus(false);
-                        
-                        // Thử lại sau 5 giây
-                        reconnectTimer = setTimeout(() => {
-                            debug("🔄 Đang thử kết nối lại...");
-                            connectMQTT();
-                        }, 5000);
-                    },
-                    userName: CONFIG.username,
-                    password: CONFIG.password,
-                    useSSL: true,
-                    keepAliveInterval: 30,
-                    cleanSession: true,
-                    timeout: 30
-                };
-                
-                client.connect(connectOptions);
-                
-            } catch (error) {
-                debug(`❌ Lỗi: ${error.message}`, true);
-                updateConnectionStatus(false);
-                
-                reconnectTimer = setTimeout(() => {
-                    connectMQTT();
-                }, 5000);
-            }
-        }
-        
-        function updateLED(state) {
-            const led = document.getElementById('led');
-            const text = document.getElementById('statusText');
-            const update = document.getElementById('lastUpdate');
-            
-            led.className = 'led ' + (state === 'ON' ? 'led-on' : 'led-off');
-            text.innerHTML = state === 'ON' ? '🔴 ĐANG BẬT' : '⚫ ĐANG TẮT';
-            text.style.color = state === 'ON' ? '#4CAF50' : '#f44336';
-            update.innerHTML = `🕐 Cập nhật: ${new Date().toLocaleTimeString()}`;
-        }
-        
+
         function updateConnectionStatus(connected) {
             const statusDiv = document.getElementById('connectionStatus');
             const btnOn = document.getElementById('btnOn');
@@ -384,46 +251,154 @@
                 btnOff.disabled = true;
             }
         }
-        
-        function sendCommand(cmd) {
-            if (!client || !isConnected) {
-                debug("❌ Không thể gửi lệnh: Chưa kết nối!", true);
-                return;
+
+        function updateLED(state) {
+            const led = document.getElementById('led');
+            const text = document.getElementById('statusText');
+            const update = document.getElementById('lastUpdate');
+            
+            led.className = 'led ' + (state === 'ON' ? 'led-on' : 'led-off');
+            text.innerHTML = state === 'ON' ? '🔴 ĐANG BẬT' : '⚫ ĐANG TẮT';
+            text.style.color = state === 'ON' ? '#4CAF50' : '#f44336';
+            update.innerHTML = `🕐 Cập nhật: ${new Date().toLocaleTimeString()}`;
+        }
+
+        function connectMQTT() {
+            if (reconnectTimeout) {
+                clearTimeout(reconnectTimeout);
             }
-            
-            debug(`📤 Gửi lệnh: ${cmd} đến esp32/control`);
-            
-            const message = new Paho.MQTT.Message(cmd);
-            message.destinationName = "esp32/control";
-            message.qos = 1;
-            
+
+            debug(`🔄 Đang kết nối đến ${CONFIG.url}...`);
+
             try {
-                client.send(message);
-                debug(`✅ Đã gửi ${cmd}`);
-                
-                // Hiệu ứng nhấn nút
-                const btn = document.getElementById(cmd === 'ON' ? 'btnOn' : 'btnOff');
-                btn.style.transform = 'scale(0.95)';
-                setTimeout(() => btn.style.transform = '', 200);
+                // Kiểm tra MQTT.js đã load chưa
+                if (typeof mqtt === 'undefined') {
+                    debug("❌ Lỗi: Thư viện MQTT chưa được load!", true);
+                    document.getElementById('browserWarning').style.display = 'block';
+                    return;
+                }
+
+                // Options kết nối
+                const options = {
+                    clientId: 'web_' + Math.random().toString(36).substring(2, 10),
+                    username: CONFIG.username,
+                    password: CONFIG.password,
+                    clean: true,
+                    connectTimeout: 30000,
+                    reconnectPeriod: 5000,
+                    keepalive: 60
+                };
+
+                client = mqtt.connect(CONFIG.url, options);
+
+                client.on('connect', () => {
+                    isConnected = true;
+                    debug('✅ KẾT NỐI THÀNH CÔNG!');
+                    
+                    // Subscribe
+                    client.subscribe('esp32/status', (err) => {
+                        if (!err) {
+                            debug('📥 Đã subscribe esp32/status');
+                        } else {
+                            debug('❌ Lỗi subscribe: ' + err, true);
+                        }
+                    });
+                    
+                    updateConnectionStatus(true);
+                    
+                    // Gửi STATUS để hỏi trạng thái
+                    setTimeout(() => {
+                        sendCommand('STATUS');
+                    }, 2000);
+                });
+
+                client.on('message', (topic, message) => {
+                    const payload = message.toString();
+                    debug(`📩 Nhận: ${payload} từ ${topic}`);
+                    
+                    if (payload === 'ON' || payload === 'ONLINE') {
+                        updateLED('ON');
+                    } else if (payload === 'OFF') {
+                        updateLED('OFF');
+                    }
+                });
+
+                client.on('error', (err) => {
+                    isConnected = false;
+                    debug(`❌ Lỗi: ${err.message}`, true);
+                    updateConnectionStatus(false);
+                });
+
+                client.on('close', () => {
+                    isConnected = false;
+                    debug('🔌 Đã đóng kết nối');
+                    updateConnectionStatus(false);
+                });
+
+                client.on('offline', () => {
+                    isConnected = false;
+                    debug('📴 Mất kết nối');
+                    updateConnectionStatus(false);
+                });
+
             } catch (error) {
-                debug(`❌ Lỗi gửi lệnh: ${error.message}`, true);
+                debug(`❌ Lỗi: ${error.message}`, true);
+                updateConnectionStatus(false);
+                
+                reconnectTimeout = setTimeout(connectMQTT, 5000);
             }
         }
-        
-        // Bắt đầu kết nối khi load trang
+
+        function sendCommand(cmd) {
+            if (!client || !isConnected) {
+                debug('❌ Chưa kết nối!', true);
+                return;
+            }
+
+            debug(`📤 Gửi: ${cmd}`);
+            
+            client.publish('esp32/control', cmd, { qos: 1 }, (err) => {
+                if (err) {
+                    debug(`❌ Lỗi gửi: ${err}`, true);
+                } else {
+                    debug(`✅ Đã gửi ${cmd}`);
+                }
+            });
+
+            // Visual feedback
+            const btn = document.getElementById(cmd === 'ON' ? 'btnOn' : 'btnOff');
+            btn.style.transform = 'scale(0.95)';
+            setTimeout(() => btn.style.transform = '', 200);
+        }
+
+        function forceReconnect() {
+            debug('🔄 Đang kết nối lại...');
+            if (client) {
+                client.end(true);
+            }
+            setTimeout(connectMQTT, 1000);
+        }
+
+        // Kiểm tra WebSocket support
+        if (!window.WebSocket) {
+            document.getElementById('browserWarning').style.display = 'block';
+            debug('❌ Trình duyệt không hỗ trợ WebSocket!', true);
+        }
+
+        // Bắt đầu kết nối
         window.onload = () => {
-            debug("🚀 Trang web đã tải");
+            debug('🚀 Trang web đã tải');
             debug(`👤 Username: ${CONFIG.username}`);
             connectMQTT();
         };
-        
-        // Dọn dẹp khi đóng trang
+
+        // Cleanup
         window.onbeforeunload = () => {
-            if (reconnectTimer) {
-                clearTimeout(reconnectTimer);
+            if (reconnectTimeout) {
+                clearTimeout(reconnectTimeout);
             }
-            if (client && isConnected) {
-                client.disconnect();
+            if (client) {
+                client.end(true);
             }
         };
     </script>
